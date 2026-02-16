@@ -48,7 +48,7 @@ namespace Application.Services
         public async Task<IEnumerable<FieldResponse>> GetFieldsByFarmIdAsync(int farmId)
         {
             // Valida se a fazenda existe
-            if (!await _farmRepository.FarmExistsAsync(farmId))
+            if (!(await _farmRepository.GetAllFarmsAsync()).Any(f => f.Id == farmId))
                 throw new ValidationException($"Farm with ID {farmId} not found.");
 
             var fields = await _fieldRepository.GetFieldsByFarmIdAsync(farmId);
@@ -60,61 +60,59 @@ namespace Application.Services
         public async Task<FieldResponse> AddFieldAsync(AddFieldRequest request)
         {
             // Valida se o Field já existe
-            if (await _fieldRepository.FieldExistsAsync(request.Id))
-                throw new ValidationException($"Field with ID {request.Id} already exists.");
+            if (await _fieldRepository.FieldExistsAsync(request.Name))
+                throw new ValidationException($"Field with name {request.Name} already exists.");
 
             // Valida se a fazenda existe
             var farm = await _farmRepository.GetFarmByIdAsync(request.FarmId);
             if (farm == null)
                 throw new ValidationException($"Farm with ID {request.FarmId} not found.");
 
+            // Valida se a fazenda está ativa
+            if (!farm.IsActive)
+                throw new ValidationException($"Cannot add field to inactive farm {request.FarmId}.");
+
             // Valida se há área disponível na fazenda
             var totalFieldsArea = await _fieldRepository.GetTotalFieldsAreaByFarmIdAsync(request.FarmId);
             var availableArea = farm.TotalAreaHectares - totalFieldsArea;
 
             if (request.AreaHectares > availableArea)
-            {
-                throw new ValidationException(
-                    $"Insufficient area in farm {request.FarmId}. " +
-                    $"Available: {availableArea} ha, Required: {request.AreaHectares} ha.");
-            }
+                throw new ValidationException($"Field area {request.AreaHectares} ha exceeds farm total area. Available: {availableArea} ha.");
 
             var fieldEntity = request.ToEntity();
             var addedField = await _fieldRepository.AddFieldAsync(fieldEntity);
 
-            _logger.LogInformation("Field {FieldId} added to farm {FarmId}", request.Id, request.FarmId);
+            _logger.LogInformation("Field {FieldId} - {FieldName} added to farm {FarmId}", addedField.Id, addedField.Name, addedField.FarmId);
             return addedField.ToResponse();
         }
 
-        public async Task<FieldResponse> UpdateFieldAsync(int fieldId, UpdateFieldRequest request)
+        public async Task<FieldResponse> UpdateFieldAsync(UpdateFieldRequest request)
         {
-            var existingField = await _fieldRepository.GetFieldByIdAsync(fieldId);
+            var existingField = await _fieldRepository.GetFieldByIdAsync(request.Id);
 
             if (existingField == null)
-                throw new ValidationException($"Field with ID {fieldId} not found.");
+                throw new ValidationException($"Field with ID {request.Id} not found.");
+
+            // Valida se a fazenda existe e carrega seus dados
+            var farm = await _farmRepository.GetFarmByIdAsync(existingField.FarmId);
+            if (farm == null)
+                throw new ValidationException($"Farm with ID {existingField.FarmId} not found.");
 
             // Valida se a nova área não excede a área disponível na fazenda
-            var farm = existingField.Farm;
-            var totalOtherFieldsArea = await _fieldRepository.GetTotalFieldsAreaByFarmIdAsync(
-                existingField.FarmId, 
-                excludeFieldId: fieldId);
+            var totalOtherFieldsArea = await _fieldRepository.GetTotalFieldsAreaByFarmIdAsync(existingField.FarmId, excludeFieldId: request.Id);
 
             var availableArea = farm.TotalAreaHectares - totalOtherFieldsArea;
 
             if (request.AreaHectares > availableArea)
-            {
-                throw new ValidationException(
-                    $"Insufficient area in farm {existingField.FarmId}. " +
-                    $"Available: {availableArea} ha, Required: {request.AreaHectares} ha.");
-            }
+                throw new ValidationException($"Field area {request.AreaHectares} ha exceeds farm total area. Available: {availableArea} ha.");
 
-            var fieldEntity = request.ToEntity(fieldId, existingField.FarmId);
+            var fieldEntity = request.ToEntity();
             fieldEntity.CreatedAt = existingField.CreatedAt;
             fieldEntity.CropSeasons = existingField.CropSeasons;
 
             var updatedField = await _fieldRepository.UpdateFieldAsync(fieldEntity);
 
-            _logger.LogInformation("Field {FieldId} updated successfully", fieldId);
+            _logger.LogInformation("Field {FieldId} updated successfully", request.Id);
             return updatedField.ToResponse();
         }
 
@@ -127,11 +125,7 @@ namespace Application.Services
 
             // Validação: não permitir deletar campo com safras ativas
             if (field.CropSeasons.Any(cs => cs.Status == Domain.Enums.CropSeasonStatus.Active))
-            {
-                throw new ValidationException(
-                    $"Cannot delete field {fieldId}. It has active crop seasons. " +
-                    "Finish or cancel them first.");
-            }
+                throw new ValidationException($"Cannot delete field {fieldId}. It has active crop seasons. Finish or cancel them first.");
 
             var deleted = await _fieldRepository.DeleteFieldAsync(fieldId);
 

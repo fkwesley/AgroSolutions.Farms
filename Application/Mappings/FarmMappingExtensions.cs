@@ -14,8 +14,8 @@ namespace Application.Mappings
         {
             return new Farm
             {
-                Id = request.FarmId,
-                Name = request.FarmName.Trim(),
+                Id = 0,
+                Name = request.Name.Trim(),
                 ProducerId = request.ProducerId.ToUpper(),
                 TotalAreaHectares = request.TotalAreaHectares,
                 IsActive = request.IsActive,

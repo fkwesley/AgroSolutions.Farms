@@ -81,10 +81,10 @@ namespace Infrastructure.Repositories
             return true;
         }
 
-        public async Task<bool> FarmExistsAsync(int farmId)
+        public async Task<bool> FarmExistsAsync(string farmName)
         {
             return await _context.Farms
-                .AnyAsync(f => f.Id == farmId);
+                .AnyAsync(f => f.Name == farmName);
         }
     }
 }

@@ -58,11 +58,18 @@ namespace Infrastructure.Repositories
 
         public async Task<Field> UpdateFieldAsync(Field field)
         {
-            var trackedEntity = _context.ChangeTracker.Entries<Field>()
+            var trackedField = _context.ChangeTracker.Entries<Field>()
                 .FirstOrDefault(e => e.Entity.Id == field.Id);
 
-            if (trackedEntity != null)
-                trackedEntity.State = EntityState.Detached;
+            if (trackedField != null)
+                trackedField.State = EntityState.Detached;
+
+            // Detach any tracked Farm entities to avoid conflicts
+            var trackedFarm = _context.ChangeTracker.Entries<Farm>()
+                .FirstOrDefault(e => e.Entity.Id == field.FarmId);
+
+            if (trackedFarm != null)
+                trackedFarm.State = EntityState.Detached;
 
             field.UpdatedAt = DateTime.UtcNow;
             _context.Fields.Update(field);
@@ -83,10 +90,10 @@ namespace Infrastructure.Repositories
             return true;
         }
 
-        public async Task<bool> FieldExistsAsync(int fieldId)
+        public async Task<bool> FieldExistsAsync(string fieldName)
         {
             return await _context.Fields
-                .AnyAsync(f => f.Id == fieldId);
+                .AnyAsync(f => f.Name == fieldName);
         }
 
         public async Task<decimal> GetTotalFieldsAreaByFarmIdAsync(int farmId, int? excludeFieldId = null)

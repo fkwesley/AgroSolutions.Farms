@@ -26,7 +26,6 @@ namespace API.Controllers.v1
         }
 
         #region GETS
-
         /// <summary>
         /// Returns all crop seasons registered.
         /// </summary>
@@ -53,7 +52,7 @@ namespace API.Controllers.v1
         [ProducesResponseType(typeof(CropSeasonResponse), StatusCodes.Status200OK)]
         [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status404NotFound)]
         [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status500InternalServerError)]
-        public async Task<IActionResult> GetById(string cropSeasonId)
+        public async Task<IActionResult> GetById(int cropSeasonId)
         {
             var cropSeason = await _cropSeasonService.GetCropSeasonByIdAsync(cropSeasonId);
             var version = HttpContext.Request.RouteValues["version"]?.ToString() ?? "1.0";
@@ -70,7 +69,7 @@ namespace API.Controllers.v1
         [ProducesResponseType(typeof(IEnumerable<CropSeasonResponse>), StatusCodes.Status200OK)]
         [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status404NotFound)]
         [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status500InternalServerError)]
-        public async Task<IActionResult> GetByFieldId(string fieldId)
+        public async Task<IActionResult> GetByFieldId(int fieldId)
         {
             var cropSeasons = await _cropSeasonService.GetCropSeasonsByFieldIdAsync(fieldId);
             var version = HttpContext.Request.RouteValues["version"]?.ToString() ?? "1.0";
@@ -115,11 +114,9 @@ namespace API.Controllers.v1
             HateoasHelper.AddLinksToCropSeasons(cropSeasons, Url, version);
             return Ok(cropSeasons);
         }
-
         #endregion
 
         #region POST
-
         /// <summary>
         /// Add a crop season.
         /// </summary>
@@ -133,6 +130,9 @@ namespace API.Controllers.v1
         [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status500InternalServerError)]
         public async Task<IActionResult> Add([FromBody] AddCropSeasonRequest request)
         {
+            // Extrai o UserId do token JWT e seta como ProducerId
+            request.CreatedBy = HttpContext.User?.FindFirst("user_id")?.Value ?? "anonymous"; // getting user_id from context (provided by token)
+
             var addedCropSeason = await _cropSeasonService.AddCropSeasonAsync(request);
             var version = HttpContext.Request.RouteValues["version"]?.ToString() ?? "1.0";
             HateoasHelper.AddLinksToCropSeason(addedCropSeason, Url, version);
@@ -141,66 +141,9 @@ namespace API.Controllers.v1
                 new { cropSeasonId = addedCropSeason.Id, version }, 
                 addedCropSeason);
         }
-
-        /// <summary>
-        /// Start planting for a crop season (changes status from Planned to Active).
-        /// </summary>
-        /// <param name="cropSeasonId">Crop Season ID</param>
-        /// <returns>Updated crop season</returns>
-        [HttpPost("{cropSeasonId}/start-planting", Name = "StartPlanting")]
-        [ProducesResponseType(typeof(CropSeasonResponse), StatusCodes.Status200OK)]
-        [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status400BadRequest)]
-        [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status404NotFound)]
-        [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status500InternalServerError)]
-        public async Task<IActionResult> StartPlanting(string cropSeasonId)
-        {
-            var updatedCropSeason = await _cropSeasonService.StartPlantingAsync(cropSeasonId);
-            var version = HttpContext.Request.RouteValues["version"]?.ToString() ?? "1.0";
-            HateoasHelper.AddLinksToCropSeason(updatedCropSeason, Url, version);
-            return Ok(updatedCropSeason);
-        }
-
-        /// <summary>
-        /// Finish harvest for a crop season (changes status from Active to Finished).
-        /// </summary>
-        /// <param name="cropSeasonId">Crop Season ID</param>
-        /// <param name="request">Harvest date</param>
-        /// <returns>Updated crop season</returns>
-        [HttpPost("{cropSeasonId}/finish-harvest", Name = "FinishHarvest")]
-        [ProducesResponseType(typeof(CropSeasonResponse), StatusCodes.Status200OK)]
-        [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status400BadRequest)]
-        [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status404NotFound)]
-        [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status500InternalServerError)]
-        public async Task<IActionResult> FinishHarvest(string cropSeasonId, [FromBody] FinishHarvestRequest request)
-        {
-            var updatedCropSeason = await _cropSeasonService.FinishHarvestAsync(cropSeasonId, request.HarvestDate);
-            var version = HttpContext.Request.RouteValues["version"]?.ToString() ?? "1.0";
-            HateoasHelper.AddLinksToCropSeason(updatedCropSeason, Url, version);
-            return Ok(updatedCropSeason);
-        }
-
-        /// <summary>
-        /// Cancel a crop season (resets status to Planned).
-        /// </summary>
-        /// <param name="cropSeasonId">Crop Season ID</param>
-        /// <returns>Updated crop season</returns>
-        [HttpPost("{cropSeasonId}/cancel", Name = "CancelCropSeason")]
-        [ProducesResponseType(typeof(CropSeasonResponse), StatusCodes.Status200OK)]
-        [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status400BadRequest)]
-        [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status404NotFound)]
-        [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status500InternalServerError)]
-        public async Task<IActionResult> Cancel(string cropSeasonId)
-        {
-            var updatedCropSeason = await _cropSeasonService.CancelCropSeasonAsync(cropSeasonId);
-            var version = HttpContext.Request.RouteValues["version"]?.ToString() ?? "1.0";
-            HateoasHelper.AddLinksToCropSeason(updatedCropSeason, Url, version);
-            return Ok(updatedCropSeason);
-        }
-
         #endregion
 
         #region PUT
-
         /// <summary>
         /// Update a crop season (only for Planned status).
         /// </summary>
@@ -214,13 +157,10 @@ namespace API.Controllers.v1
         [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status401Unauthorized)]
         [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status403Forbidden)]
         [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status500InternalServerError)]
-        public async Task<IActionResult> Update(string cropSeasonId, [FromBody] UpdateCropSeasonRequest request)
+        public async Task<IActionResult> Update(int cropSeasonId, [FromBody] UpdateCropSeasonRequest request)
         {
-            if (cropSeasonId.ToUpper() != request.Id.ToUpper())
-                return BadRequest(new ErrorResponse 
-                { 
-                    Message = "Crop Season ID in URL does not match Crop Season ID in request body." 
-                });
+            request.Id = cropSeasonId;
+            request.UpdatedBy = HttpContext.User?.FindFirst("user_id")?.Value ?? "anonymous";
 
             var updatedCropSeason = await _cropSeasonService.UpdateCropSeasonAsync(request);
             var version = HttpContext.Request.RouteValues["version"]?.ToString() ?? "1.0";
@@ -228,11 +168,9 @@ namespace API.Controllers.v1
 
             return Ok(updatedCropSeason);
         }
-
         #endregion
 
         #region DELETE
-
         /// <summary>
         /// Delete a crop season.
         /// </summary>
@@ -245,12 +183,11 @@ namespace API.Controllers.v1
         [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status401Unauthorized)]
         [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status403Forbidden)]
         [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status500InternalServerError)]
-        public async Task<IActionResult> Delete(string cropSeasonId)
+        public async Task<IActionResult> Delete(int cropSeasonId)
         {
             await _cropSeasonService.DeleteCropSeasonAsync(cropSeasonId);
             return NoContent();
         }
-
         #endregion
     }
 }

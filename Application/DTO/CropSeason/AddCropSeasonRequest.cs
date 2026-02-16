@@ -18,5 +18,8 @@ namespace Application.DTO.CropSeason
 
         [Required]
         public required DateTime ExpectedHarvestDate { get; set; }
+        
+        [JsonIgnore]
+        public required string CreatedBy { get; set; }
     }
 }

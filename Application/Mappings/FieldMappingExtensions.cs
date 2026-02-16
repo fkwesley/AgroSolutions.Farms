@@ -13,14 +13,14 @@ namespace Application.Mappings
         {
             return new Field
             {
-                Id = request.Id.ToUpper(),
+                Id = 0,
                 FarmId = request.FarmId,
                 Name = request.Name.Trim(),
                 AreaHectares = request.AreaHectares,
                 Latitude = request.Latitude,
                 Longitude = request.Longitude,
                 IsActive = request.IsActive,
-                CreatedBy = request.CreatedBy
+                CreatedBy = request.CreatedBy,
                 CreatedAt = DateTime.UtcNow
             };
         }
@@ -28,18 +28,19 @@ namespace Application.Mappings
         /// <summary>
         /// Maps a UpdateFieldRequest to a Field entity.
         /// </summary>
-        public static Field ToEntity(this UpdateFieldRequest request, int fieldId, int farmId)
+        public static Field ToEntity(this UpdateFieldRequest request)
         {
             return new Field
             {
-                Id = fieldId,
-                FarmId = farmId,
+                Id = request.Id,
+                FarmId = request.FarmId,
                 Name = request.Name.Trim(),
                 AreaHectares = request.AreaHectares,
                 Latitude = request.Latitude,
                 Longitude = request.Longitude,
                 IsActive = request.IsActive,
-                UpdatedAt = DateTime.UtcNow
+                UpdatedAt = DateTime.UtcNow,
+                CreatedBy = String.Empty // This will be set when the entity is retrieved from the database for update
             };
         }
 

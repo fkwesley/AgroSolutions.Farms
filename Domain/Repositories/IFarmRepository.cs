@@ -10,6 +10,6 @@ namespace Domain.Repositories
         Task<Farm> AddFarmAsync(Farm farm);
         Task<Farm> UpdateFarmAsync(Farm farm);
         Task<bool> DeleteFarmAsync(int farmId);
-        Task<bool> FarmExistsAsync(int farmId);
+        Task<bool> FarmExistsAsync(string farmName);
     }
 }

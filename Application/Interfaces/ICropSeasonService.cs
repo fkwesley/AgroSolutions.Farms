@@ -12,15 +12,15 @@ namespace Application.Interfaces
     public interface ICropSeasonService
     {
         Task<IEnumerable<CropSeasonResponse>> GetAllCropSeasonsAsync();
-        Task<CropSeasonResponse> GetCropSeasonByIdAsync(string cropSeasonId);
-        Task<IEnumerable<CropSeasonResponse>> GetCropSeasonsByFieldIdAsync(string fieldId);
+        Task<CropSeasonResponse> GetCropSeasonByIdAsync(int cropSeasonId);
+        Task<IEnumerable<CropSeasonResponse>> GetCropSeasonsByFieldIdAsync(int fieldId);
         Task<IEnumerable<CropSeasonResponse>> GetCropSeasonsByStatusAsync(CropSeasonStatus status);
         Task<IEnumerable<CropSeasonResponse>> GetOverdueCropSeasonsAsync();
         Task<CropSeasonResponse> AddCropSeasonAsync(AddCropSeasonRequest request);
         Task<CropSeasonResponse> UpdateCropSeasonAsync(UpdateCropSeasonRequest request);
-        Task<CropSeasonResponse> StartPlantingAsync(string cropSeasonId);
-        Task<CropSeasonResponse> FinishHarvestAsync(string cropSeasonId, DateTime harvestDate);
-        Task<CropSeasonResponse> CancelCropSeasonAsync(string cropSeasonId);
-        Task<bool> DeleteCropSeasonAsync(string cropSeasonId);
+        Task<CropSeasonResponse> StartPlantingAsync(int cropSeasonId, string updatedBy);
+        Task<CropSeasonResponse> FinishHarvestAsync(int cropSeasonId, DateTime harvestDate, string updatedBy);
+        Task<CropSeasonResponse> CancelCropSeasonAsync(int cropSeasonId, string updatedBy);
+        Task<bool> DeleteCropSeasonAsync(int cropSeasonId);
     }
 }

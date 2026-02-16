@@ -58,6 +58,9 @@ public static class DependencyInjectionConfiguration
         ConfigureLoggerService(builder);
 
         // Repositories
+        builder.Services.AddScoped<IFarmRepository, FarmRepository>();
+        builder.Services.AddScoped<IFieldRepository, FieldRepository>();
+        builder.Services.AddScoped<ICropSeasonRepository, CropSeasonRepository>();
 
         // Database Context
         builder.Services.AddDbContext<FarmsDbContext>(options =>

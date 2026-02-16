@@ -12,13 +12,12 @@ namespace Application.Mappings
         {
             return new CropSeason
             {
-                Id = 0, // Id will be set by the database
                 FieldId = request.FieldId,
                 CropType = request.CropType,
                 PlantingDate = request.PlantingDate,
                 ExpectedHarvestDate = request.ExpectedHarvestDate,
                 Status = Domain.Enums.CropSeasonStatus.Planned,
-                CreatedAt = DateTime.UtcNow
+                CreatedBy = request.CreatedBy
             };
         }
 
@@ -29,7 +28,6 @@ namespace Application.Mappings
         {
             entity.PlantingDate = request.PlantingDate;
             entity.ExpectedHarvestDate = request.ExpectedHarvestDate;
-            entity.UpdatedAt = DateTime.UtcNow;
         }
 
         /// <summary>

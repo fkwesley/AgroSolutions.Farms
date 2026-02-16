@@ -36,7 +36,7 @@ namespace Application.Services
             return cropSeasons.Select(cs => cs.ToResponse()).ToList();
         }
 
-        public async Task<CropSeasonResponse> GetCropSeasonByIdAsync(string cropSeasonId)
+        public async Task<CropSeasonResponse> GetCropSeasonByIdAsync(int cropSeasonId)
         {
             var cropSeason = await _cropSeasonRepository.GetCropSeasonByIdAsync(cropSeasonId);
 
@@ -46,10 +46,11 @@ namespace Application.Services
             return cropSeason.ToResponse();
         }
 
-        public async Task<IEnumerable<CropSeasonResponse>> GetCropSeasonsByFieldIdAsync(string fieldId)
+        public async Task<IEnumerable<CropSeasonResponse>> GetCropSeasonsByFieldIdAsync(int fieldId)
         {
             // Valida se o campo existe
-            if (!await _fieldRepository.FieldExistsAsync(fieldId))
+            var field = await _fieldRepository.GetFieldByIdAsync(fieldId);
+            if (field == null)
                 throw new ValidationException($"Field with ID {fieldId} not found.");
 
             var cropSeasons = await _cropSeasonRepository.GetCropSeasonsByFieldIdAsync(fieldId);
@@ -75,10 +76,6 @@ namespace Application.Services
 
         public async Task<CropSeasonResponse> AddCropSeasonAsync(AddCropSeasonRequest request)
         {
-            // Valida se já existe
-            if (await _cropSeasonRepository.CropSeasonExistsAsync(request.Id))
-                throw new ValidationException($"Crop season with ID {request.Id} already exists.");
-
             // Valida se o campo existe
             var field = await _fieldRepository.GetFieldByIdAsync(request.FieldId);
             if (field == null)
@@ -88,11 +85,19 @@ namespace Application.Services
             if (!field.IsActive)
                 throw new ValidationException($"Cannot add crop season to inactive field {request.FieldId}.");
 
+            // Valida se há conflito de datas (campo ocupado no período)
+            if (await _cropSeasonRepository.HasDateConflictAsync(request.FieldId, request.PlantingDate, request.ExpectedHarvestDate))
+                throw new ValidationException($"Field {request.FieldId} is not available for the period from {request.PlantingDate:yyyy-MM-dd} " +
+                                                    $"to {request.ExpectedHarvestDate:yyyy-MM-dd}. There is an overlapping crop season.");
+
             var cropSeasonEntity = request.ToEntity();
+            cropSeasonEntity.SetCreatedAudit(request.CreatedBy);
+
             var addedCropSeason = await _cropSeasonRepository.AddCropSeasonAsync(cropSeasonEntity);
 
-            _logger.LogInformation("Crop season {CropSeasonId} added to field {FieldId}", 
-                request.Id, request.FieldId);
+            _logger.LogInformation(
+                "Crop season {CropSeasonId} added to field {FieldId} for period {PlantingDate} to {ExpectedHarvestDate} by {CreatedBy}", 
+                addedCropSeason.Id, request.FieldId, request.PlantingDate, request.ExpectedHarvestDate, request.CreatedBy);
             return addedCropSeason.ToResponse();
         }
 
@@ -105,20 +110,28 @@ namespace Application.Services
 
             // Apenas safras planejadas podem ter datas alteradas
             if (existingCropSeason.Status != CropSeasonStatus.Planned)
-            {
-                throw new ValidationException(
-                    $"Cannot update crop season {request.Id}. " +
-                    "Only planned crop seasons can be updated.");
-            }
+                throw new ValidationException($"Cannot update crop season {request.Id}. Only planned crop seasons can be updated.");
+
+            // Valida conflito de datas (excluindo a própria safra)
+            if (await _cropSeasonRepository.HasDateConflictAsync(
+                                                existingCropSeason.FieldId,
+                                                request.PlantingDate,
+                                                request.ExpectedHarvestDate,
+                                                excludeCropSeasonId: request.Id))
+                throw new ValidationException($"Field is not available for the updated period " +
+                                    $"from {request.PlantingDate:yyyy-MM-dd} to {request.ExpectedHarvestDate:yyyy-MM-dd}. " +
+                                    "There is an overlapping crop season.");
 
             existingCropSeason.UpdateFromRequest(request);
+            existingCropSeason.SetUpdatedAudit(request.UpdatedBy);
+
             var updatedCropSeason = await _cropSeasonRepository.UpdateCropSeasonAsync(existingCropSeason);
 
-            _logger.LogInformation("Crop season {CropSeasonId} updated successfully", request.Id);
+            _logger.LogInformation("Crop season {CropSeasonId} updated successfully by {UpdatedBy}", request.Id, request.UpdatedBy);
             return updatedCropSeason.ToResponse();
         }
 
-        public async Task<CropSeasonResponse> StartPlantingAsync(string cropSeasonId)
+        public async Task<CropSeasonResponse> StartPlantingAsync(int cropSeasonId, string updatedBy)
         {
             var cropSeason = await _cropSeasonRepository.GetCropSeasonByIdAsync(cropSeasonId);
 
@@ -126,13 +139,15 @@ namespace Application.Services
                 throw new ValidationException($"Crop season with ID {cropSeasonId} not found.");
 
             cropSeason.StartPlanting();
+            cropSeason.SetUpdatedAudit(updatedBy);
             var updatedCropSeason = await _cropSeasonRepository.UpdateCropSeasonAsync(cropSeason);
 
-            _logger.LogInformation("Planting started for crop season {CropSeasonId}", cropSeasonId);
+            _logger.LogInformation("Planting started for crop season {CropSeasonId} by {UpdatedBy}", 
+                cropSeasonId, updatedBy);
             return updatedCropSeason.ToResponse();
         }
 
-        public async Task<CropSeasonResponse> FinishHarvestAsync(string cropSeasonId, DateTime harvestDate)
+        public async Task<CropSeasonResponse> FinishHarvestAsync(int cropSeasonId, DateTime harvestDate, string updatedBy)
         {
             var cropSeason = await _cropSeasonRepository.GetCropSeasonByIdAsync(cropSeasonId);
 
@@ -140,14 +155,15 @@ namespace Application.Services
                 throw new ValidationException($"Crop season with ID {cropSeasonId} not found.");
 
             cropSeason.FinishHarvest(harvestDate);
+            cropSeason.SetUpdatedAudit(updatedBy);
             var updatedCropSeason = await _cropSeasonRepository.UpdateCropSeasonAsync(cropSeason);
 
-            _logger.LogInformation("Harvest finished for crop season {CropSeasonId} on {HarvestDate}", 
-                cropSeasonId, harvestDate);
+            _logger.LogInformation("Harvest finished for crop season {CropSeasonId} on {HarvestDate} by {UpdatedBy}", 
+                cropSeasonId, harvestDate, updatedBy);
             return updatedCropSeason.ToResponse();
         }
 
-        public async Task<CropSeasonResponse> CancelCropSeasonAsync(string cropSeasonId)
+        public async Task<CropSeasonResponse> CancelCropSeasonAsync(int cropSeasonId, string updatedBy)
         {
             var cropSeason = await _cropSeasonRepository.GetCropSeasonByIdAsync(cropSeasonId);
 
@@ -155,13 +171,15 @@ namespace Application.Services
                 throw new ValidationException($"Crop season with ID {cropSeasonId} not found.");
 
             cropSeason.Cancel();
+            cropSeason.SetUpdatedAudit(updatedBy);
             var updatedCropSeason = await _cropSeasonRepository.UpdateCropSeasonAsync(cropSeason);
 
-            _logger.LogInformation("Crop season {CropSeasonId} cancelled", cropSeasonId);
+            _logger.LogInformation("Crop season {CropSeasonId} cancelled by {UpdatedBy}", 
+                cropSeasonId, updatedBy);
             return updatedCropSeason.ToResponse();
         }
 
-        public async Task<bool> DeleteCropSeasonAsync(string cropSeasonId)
+        public async Task<bool> DeleteCropSeasonAsync(int cropSeasonId)
         {
             var cropSeason = await _cropSeasonRepository.GetCropSeasonByIdAsync(cropSeasonId);
 

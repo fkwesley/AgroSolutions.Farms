@@ -31,20 +31,20 @@ namespace Infrastructure.Repositories
                 .ToListAsync();
         }
 
-        public async Task<CropSeason?> GetCropSeasonByIdAsync(string cropSeasonId)
+        public async Task<CropSeason?> GetCropSeasonByIdAsync(int cropSeasonId)
         {
             return await _context.CropSeasons
                 .Include(cs => cs.Field)
                     .ThenInclude(f => f.Farm)
                 .AsNoTracking()
-                .FirstOrDefaultAsync(cs => cs.Id.ToUpper() == cropSeasonId.ToUpper());
+                .FirstOrDefaultAsync(cs => cs.Id == cropSeasonId);
         }
 
-        public async Task<IEnumerable<CropSeason>> GetCropSeasonsByFieldIdAsync(string fieldId)
+        public async Task<IEnumerable<CropSeason>> GetCropSeasonsByFieldIdAsync(int fieldId)
         {
             return await _context.CropSeasons
                 .AsNoTracking()
-                .Where(cs => cs.FieldId.ToUpper() == fieldId.ToUpper())
+                .Where(cs => cs.FieldId == fieldId)
                 .ToListAsync();
         }
 
@@ -78,11 +78,25 @@ namespace Infrastructure.Repositories
 
         public async Task<CropSeason> UpdateCropSeasonAsync(CropSeason cropSeason)
         {
-            var trackedEntity = _context.ChangeTracker.Entries<CropSeason>()
-                .FirstOrDefault(e => e.Entity.Id == cropSeason.Id);
+            // Detach all tracked entities to avoid conflicts
+            var trackedCropSeason = _context.ChangeTracker.Entries<CropSeason>()
+                .Where(e => e.Entity.Id == cropSeason.Id)
+                .ToList();
 
-            if (trackedEntity != null)
-                trackedEntity.State = EntityState.Detached;
+            foreach (var entry in trackedCropSeason)
+                entry.State = EntityState.Detached;
+
+            var trackedFields = _context.ChangeTracker.Entries<Field>()
+                .ToList();
+
+            foreach (var entry in trackedFields)
+                entry.State = EntityState.Detached;
+
+            var trackedFarms = _context.ChangeTracker.Entries<Farm>()
+                .ToList();
+
+            foreach (var entry in trackedFarms)
+                entry.State = EntityState.Detached;
 
             cropSeason.UpdatedAt = DateTime.UtcNow;
             _context.CropSeasons.Update(cropSeason);
@@ -90,10 +104,10 @@ namespace Infrastructure.Repositories
             return cropSeason;
         }
 
-        public async Task<bool> DeleteCropSeasonAsync(string cropSeasonId)
+        public async Task<bool> DeleteCropSeasonAsync(int cropSeasonId)
         {
             var cropSeason = await _context.CropSeasons
-                .FirstOrDefaultAsync(cs => cs.Id.ToUpper() == cropSeasonId.ToUpper());
+                .FirstOrDefaultAsync(cs => cs.Id == cropSeasonId);
 
             if (cropSeason == null)
                 return false;
@@ -103,10 +117,28 @@ namespace Infrastructure.Repositories
             return true;
         }
 
-        public async Task<bool> CropSeasonExistsAsync(string cropSeasonId)
+        public async Task<bool> HasDateConflictAsync(
+            int fieldId, 
+            DateTime plantingDate, 
+            DateTime expectedHarvestDate, 
+            int? excludeCropSeasonId = null)
         {
-            return await _context.CropSeasons
-                .AnyAsync(cs => cs.Id.ToUpper() == cropSeasonId.ToUpper());
+            // Verifica se existe alguma safra no mesmo campo com datas sobrepostas
+            // Considera apenas safras Planned e Active (não Finished ou Cancelled)
+            var query = _context.CropSeasons
+                .Where(cs => cs.FieldId == fieldId)
+                .Where(cs => cs.Status == CropSeasonStatus.Planned || cs.Status == CropSeasonStatus.Active);
+
+            // Exclui a safra específica se fornecido (útil para updates)
+            if (excludeCropSeasonId.HasValue)
+                query = query.Where(cs => cs.Id != excludeCropSeasonId.Value);
+
+            return await query.AnyAsync(cs =>
+                // Novo período começa antes do fim de uma safra existente
+                // E termina depois do início de uma safra existente
+                plantingDate < cs.ExpectedHarvestDate &&
+                expectedHarvestDate > cs.PlantingDate
+            );
         }
     }
 }

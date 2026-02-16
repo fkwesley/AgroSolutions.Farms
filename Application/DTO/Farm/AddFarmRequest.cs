@@ -7,11 +7,8 @@ namespace Application.DTO.Farm
     public class AddFarmRequest
     {
         [Required]
-        public int FarmId { get; set; }
-
-        [Required]
         [MaxLength(100)]
-        public required string FarmName { get; set; }
+        public required string Name { get; set; }
 
         [JsonIgnore]
         public string ProducerId { get; set; } = string.Empty;

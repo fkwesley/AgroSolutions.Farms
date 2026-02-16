@@ -45,15 +45,15 @@ namespace Application.Services
         public async Task<FarmResponse> AddFarmAsync(AddFarmRequest request)
         {
             // Valida se o FarmId já existe
-            if (await _farmRepository.FarmExistsAsync(request.FarmId))
-                throw new ValidationException($"Farm with ID {request.FarmId} already exists.");
+            if (await _farmRepository.FarmExistsAsync(request.Name))
+                throw new ValidationException($"Farm with name {request.Name} already exists.");
 
             var farmEntity = request.ToEntity();
             farmEntity.SetCreatedAudit(request.ProducerId);
 
             var addedFarm = await _farmRepository.AddFarmAsync(farmEntity);
 
-            _logger.LogInformation("Farm {FarmId} added successfully by producer {ProducerId}", request.FarmId, request.ProducerId);
+            _logger.LogInformation("Farm {FarmId} added successfully by producer {ProducerId}", addedFarm.Id, request.ProducerId);
             return addedFarm.ToResponse();
         }
 

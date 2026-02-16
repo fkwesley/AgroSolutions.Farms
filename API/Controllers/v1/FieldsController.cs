@@ -25,7 +25,6 @@ namespace API.Controllers.v1
         }
 
         #region GETS
-
         /// <summary>
         /// Returns all fields registered.
         /// </summary>
@@ -76,11 +75,9 @@ namespace API.Controllers.v1
             HateoasHelper.AddLinksToFields(fields, Url, version);
             return Ok(fields);
         }
-
         #endregion
 
         #region POST
-
         /// <summary>
         /// Add a field.
         /// </summary>
@@ -94,6 +91,9 @@ namespace API.Controllers.v1
         [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status500InternalServerError)]
         public async Task<IActionResult> Add([FromBody] AddFieldRequest request)
         {
+            // Extrai o UserId do token JWT e seta como ProducerId
+            request.CreatedBy = HttpContext.User?.FindFirst("user_id")?.Value ?? "anonymous"; // getting user_id from context (provided by token)
+
             var addedField = await _fieldService.AddFieldAsync(request);
             var version = HttpContext.Request.RouteValues["version"]?.ToString() ?? "1.0";
             HateoasHelper.AddLinksToField(addedField, Url, version);
@@ -102,11 +102,9 @@ namespace API.Controllers.v1
                 new { fieldId = addedField.Id, version }, 
                 addedField);
         }
-
         #endregion
 
         #region PUT
-
         /// <summary>
         /// Update a field.
         /// </summary>
@@ -122,17 +120,19 @@ namespace API.Controllers.v1
         [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status500InternalServerError)]
         public async Task<IActionResult> Update(int fieldId, [FromBody] UpdateFieldRequest request)
         {
-            var updatedField = await _fieldService.UpdateFieldAsync(fieldId, request);
+            // Extrai o UserId do token JWT e seta como ProducerId
+            request.Id = fieldId; 
+            request.UpdatedBy = HttpContext.User?.FindFirst("user_id")?.Value ?? "anonymous"; // getting user_id from context (provided by token)
+
+            var updatedField = await _fieldService.UpdateFieldAsync(request);
             var version = HttpContext.Request.RouteValues["version"]?.ToString() ?? "1.0";
             HateoasHelper.AddLinksToField(updatedField, Url, version);
 
             return Ok(updatedField);
         }
-
         #endregion
 
         #region DELETE
-
         /// <summary>
         /// Delete a field.
         /// </summary>
@@ -150,7 +150,6 @@ namespace API.Controllers.v1
             await _fieldService.DeleteFieldAsync(fieldId);
             return NoContent();
         }
-
         #endregion
     }
 }

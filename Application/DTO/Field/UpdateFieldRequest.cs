@@ -1,4 +1,5 @@
 using System.ComponentModel.DataAnnotations;
+using System.Text.Json.Serialization;
 
 namespace Application.DTO.Field
 {
@@ -6,6 +7,9 @@ namespace Application.DTO.Field
     {
         [Required]
         public int Id { get; set; }
+
+        [JsonIgnore]
+        public int FarmId { get; set; }
 
         [Required]
         [MaxLength(100)]
@@ -24,5 +28,8 @@ namespace Application.DTO.Field
         public required decimal Longitude { get; set; }
 
         public bool IsActive { get; set; }
+
+        [JsonIgnore]
+        public string UpdatedBy { get; set; }
     }
 }

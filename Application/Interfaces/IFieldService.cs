@@ -14,7 +14,7 @@ namespace Application.Interfaces
         Task<FieldResponse> GetFieldByIdAsync(int fieldId);
         Task<IEnumerable<FieldResponse>> GetFieldsByFarmIdAsync(int farmId);
         Task<FieldResponse> AddFieldAsync(AddFieldRequest request);
-        Task<FieldResponse> UpdateFieldAsync(int fieldId, UpdateFieldRequest request);
+        Task<FieldResponse> UpdateFieldAsync(UpdateFieldRequest request);
         Task<bool> DeleteFieldAsync(int fieldId);
     }
 }

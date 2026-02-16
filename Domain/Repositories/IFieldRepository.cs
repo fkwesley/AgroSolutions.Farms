@@ -10,7 +10,7 @@ namespace Domain.Repositories
         Task<Field> AddFieldAsync(Field field);
         Task<Field> UpdateFieldAsync(Field field);
         Task<bool> DeleteFieldAsync(int fieldId);
-        Task<bool> FieldExistsAsync(int fieldId);
+        Task<bool> FieldExistsAsync(string fieldName);
         Task<decimal> GetTotalFieldsAreaByFarmIdAsync(int farmId, int? excludeFieldId = null);
     }
 }

@@ -1,5 +1,5 @@
 using Domain.Entities;
-using Domain.Enums;
+using Domain.ValueObjects;
 using Infrastructure.Context;
 
 namespace Tests.IntegrationTests.Common;
@@ -9,81 +9,69 @@ namespace Tests.IntegrationTests.Common;
 /// </summary>
 public static class DatabaseSeeder
 {
-    public static void SeedTestData(OrdersDbContext context)
+    public static void SeedTestData(FarmsDbContext context)
     {
         // Limpa dados existentes
-        context.Orders.RemoveRange(context.Orders);
-        context.Games.RemoveRange(context.Games);
+        context.Farms.RemoveRange(context.Farms);
         context.SaveChanges();
 
-        var games = new List<Game>
+        // Seed Farms
+        var farm1 = new Farm
         {
-            new Game
-            {
-                GameId = 1,
-                Name = "Test Game 1",
-                Price = 59.99
-            },
-            new Game
-            {
-                GameId = 2,
-                Name = "Test Game 2",
-                Price = 39.99
-            },
-            new Game
-            {
-                GameId = 3,
-                Name = "Test Game 3",
-                Price = 29.99
-            }
+            ProducerId = "TEST-PRODUCER-1",
+            Name = "Test Farm 1",
+            TotalAreaHectares = 1000m,
+            IsActive = true,
+            Location = new Location("São Paulo", "SP", "Brazil"),
+            CreatedBy = "system",
+            CreatedAt = DateTime.UtcNow.AddDays(-30)
         };
 
-        // Seed Orders
-        var order1 = new Order
+        var farm2 = new Farm
         {
-            OrderId = 1,
-            UserId = "test-user-1",
-            UserEmail = "user1@test.com",
-            Status = OrderStatus.PendingPayment,
-            PaymentMethod = PaymentMethod.Pix,
-            CreatedAt = DateTime.UtcNow.AddDays(-2),
-            ListOfGames = games
+            ProducerId = "TEST-PRODUCER-2",
+            Name = "Test Farm 2",
+            TotalAreaHectares = 1500m,
+            IsActive = true,
+            Location = new Location("Minas Gerais", "MG", "Brazil"),
+            CreatedBy = "system",
+            CreatedAt = DateTime.UtcNow.AddDays(-15)
         };
 
-        var order2 = new Order
+        var farm3 = new Farm
         {
-            OrderId = 2,
-            UserId = "test-user-2",
-            UserEmail = "user2@test.com",
-            Status = OrderStatus.Paid,
-            PaymentMethod = PaymentMethod.Pix,
-            CreatedAt = DateTime.UtcNow.AddDays(-1),
-            ListOfGames = games
+            ProducerId = "TEST-PRODUCER-3",
+            Name = "Test Farm 3 (Inactive)",
+            TotalAreaHectares = 2000m,
+            IsActive = false,
+            Location = new Location("Paraná", "PR", "Brazil"),
+            CreatedBy = "system",
+            CreatedAt = DateTime.UtcNow.AddDays(-60)
         };
 
-        context.Orders.AddRange(order1, order2);
+        context.Farms.AddRange(farm1, farm2, farm3);
         context.SaveChanges();
     }
 
-    public static Order CreateTestOrder(string userId = "test-user", string email = "test@example.com")
+    public static Farm CreateTestFarm(
+        string producerId = "TEST-PRODUCER", 
+        string name = "Test Farm",
+        decimal totalAreaHectares = 1000m,
+        bool isActive = true,
+        string city = "São Paulo",
+        string state = "SP",
+        string country = "Brazil")
     {
-        return new Order
+        return new Farm
         {
-            UserId = userId,
-            UserEmail = email,
-            Status = OrderStatus.PendingPayment,
-            PaymentMethod = PaymentMethod.Pix,
+            ProducerId = producerId,
+            Name = name,
+            TotalAreaHectares = totalAreaHectares,
+            IsActive = isActive,
+            Location = new Location(city, state, country),
+            CreatedBy = "system",
             CreatedAt = DateTime.UtcNow
         };
     }
-
-    public static Game CreateTestGame(int id = 1, string name = "Test Game", decimal price = 49.99m)
-    {
-        return new Game
-        {
-            GameId = id,
-            Name = name,
-            Price = (double)price
-        };
-    }
 }
+

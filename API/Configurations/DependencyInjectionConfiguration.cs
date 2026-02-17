@@ -78,7 +78,17 @@ public static class DependencyInjectionConfiguration
         // Other Services
         builder.Services.AddHttpClient();
         builder.Services.AddHttpContextAccessor();
-        builder.Services.AddControllers();
+        builder.Services.AddControllers()
+            .AddJsonOptions(options =>
+            {
+                // Serializa todos os enums como string ao invés de número
+                // Exemplo: "CropType": "Soja" ao invés de "CropType": 1
+                options.JsonSerializerOptions.Converters.Add(
+                    new System.Text.Json.Serialization.JsonStringEnumConverter());
+                
+                // Permite valores case-insensitive (aceita "soja", "SOJA", "Soja")
+                options.JsonSerializerOptions.PropertyNameCaseInsensitive = true;
+            });
         builder.Services.AddEndpointsApiExplorer();
 
         // Elastic APM

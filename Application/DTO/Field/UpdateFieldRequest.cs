@@ -5,10 +5,11 @@ namespace Application.DTO.Field
 {
     public class UpdateFieldRequest
     {
-        [Required]
+        [JsonIgnore]
         public int Id { get; set; }
 
-        [JsonIgnore]
+        [Required]
+        [Range(1, int.MaxValue, ErrorMessage = "FarmId must be a positive number")]
         public int FarmId { get; set; }
 
         [Required]
@@ -30,6 +31,6 @@ namespace Application.DTO.Field
         public bool IsActive { get; set; }
 
         [JsonIgnore]
-        public string UpdatedBy { get; set; }
+        public string UpdatedBy { get; set; } = string.Empty;
     }
 }

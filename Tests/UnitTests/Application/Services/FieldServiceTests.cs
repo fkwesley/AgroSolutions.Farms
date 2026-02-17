@@ -76,7 +76,7 @@ namespace Tests.UnitTests.Application.Services
         }
 
         [Fact]
-        public async Task GetFieldByIdAsync_WithInvalidId_ShouldThrowValidationException()
+        public async Task GetFieldByIdAsync_WithInvalidId_ShouldThrowKeyNotFoundException()
         {
             // Arrange
             _mockFieldRepository
@@ -84,7 +84,7 @@ namespace Tests.UnitTests.Application.Services
                 .ReturnsAsync((Field?)null);
 
             // Act & Assert
-            await Assert.ThrowsAsync<ValidationException>(
+            await Assert.ThrowsAsync<KeyNotFoundException>(
                 () => _fieldService.GetFieldByIdAsync(999));
         }
 
@@ -120,7 +120,7 @@ namespace Tests.UnitTests.Application.Services
         }
 
         [Fact]
-        public async Task GetFieldsByFarmIdAsync_WithInvalidFarmId_ShouldThrowValidationException()
+        public async Task GetFieldsByFarmIdAsync_WithInvalidFarmId_ShouldThrowKeyNotFoundException()
         {
             // Arrange
             _mockFarmRepository
@@ -128,7 +128,7 @@ namespace Tests.UnitTests.Application.Services
                 .ReturnsAsync(new List<Farm>());
 
             // Act & Assert
-            await Assert.ThrowsAsync<ValidationException>(
+            await Assert.ThrowsAsync<KeyNotFoundException>(
                 () => _fieldService.GetFieldsByFarmIdAsync(999));
         }
 
@@ -174,7 +174,7 @@ namespace Tests.UnitTests.Application.Services
         }
 
         [Fact]
-        public async Task AddFieldAsync_WithNonExistentFarm_ShouldThrowValidationException()
+        public async Task AddFieldAsync_WithNonExistentFarm_ShouldThrowKeyNotFoundException()
         {
             // Arrange
             var request = new AddFieldRequest
@@ -192,7 +192,7 @@ namespace Tests.UnitTests.Application.Services
                 .ReturnsAsync((Farm?)null);
 
             // Act & Assert
-            await Assert.ThrowsAsync<ValidationException>(
+            await Assert.ThrowsAsync<KeyNotFoundException>(
                 () => _fieldService.AddFieldAsync(request));
         }
 
@@ -299,7 +299,7 @@ namespace Tests.UnitTests.Application.Services
         }
 
         [Fact]
-        public async Task UpdateFieldAsync_WithNonExistentField_ShouldThrowValidationException()
+        public async Task UpdateFieldAsync_WithNonExistentField_ShouldThrowKeyNotFoundException()
         {
             // Arrange
             var request = new UpdateFieldRequest
@@ -317,7 +317,7 @@ namespace Tests.UnitTests.Application.Services
                 .ReturnsAsync((Field?)null);
 
             // Act & Assert
-            await Assert.ThrowsAsync<ValidationException>(
+            await Assert.ThrowsAsync<KeyNotFoundException>(
                 () => _fieldService.UpdateFieldAsync(request));
         }
 
@@ -398,8 +398,8 @@ namespace Tests.UnitTests.Application.Services
                     Id = 1,
                     FieldId = 1,
                     CropType = global::Domain.Enums.CropType.Soybean,
-                    PlantingDate = DateTime.UtcNow.AddDays(10),
-                    ExpectedHarvestDate = DateTime.UtcNow.AddDays(130),
+                    PlantingDate = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(10)),
+                    ExpectedHarvestDate = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(130)),
                     Status = global::Domain.Enums.CropSeasonStatus.Active,
                     CreatedBy = "system",
                     CreatedAt = DateTime.UtcNow
@@ -417,7 +417,7 @@ namespace Tests.UnitTests.Application.Services
         }
 
         [Fact]
-        public async Task DeleteFieldAsync_WithNonExistentField_ShouldThrowValidationException()
+        public async Task DeleteFieldAsync_WithNonExistentField_ShouldThrowKeyNotFoundException()
         {
             // Arrange
             _mockFieldRepository
@@ -425,7 +425,7 @@ namespace Tests.UnitTests.Application.Services
                 .ReturnsAsync((Field?)null);
 
             // Act & Assert
-            await Assert.ThrowsAsync<ValidationException>(
+            await Assert.ThrowsAsync<KeyNotFoundException>(
                 () => _fieldService.DeleteFieldAsync(999));
         }
 

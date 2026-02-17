@@ -248,8 +248,8 @@ namespace Tests.UnitTests.Domain.Entities
                 Id = id,
                 FieldId = 1,
                 CropType = CropType.Soybean,
-                PlantingDate = DateTime.UtcNow.AddDays(10),
-                ExpectedHarvestDate = DateTime.UtcNow.AddDays(130),
+                PlantingDate = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(10)),
+                ExpectedHarvestDate = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(130)),
                 Status = status,
                 CreatedBy = "system",
                 CreatedAt = DateTime.UtcNow
@@ -257,7 +257,7 @@ namespace Tests.UnitTests.Domain.Entities
 
             if (status == CropSeasonStatus.Finished)
             {
-                cropSeason.HarvestDate = DateTime.UtcNow;
+                cropSeason.HarvestDate = DateOnly.FromDateTime(DateTime.UtcNow);
             }
 
             return cropSeason;

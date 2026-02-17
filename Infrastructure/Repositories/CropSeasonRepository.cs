@@ -59,7 +59,7 @@ namespace Infrastructure.Repositories
 
         public async Task<IEnumerable<CropSeason>> GetOverdueCropSeasonsAsync()
         {
-            var now = DateTime.UtcNow;
+            var now = DateOnly.FromDateTime(DateTime.UtcNow);
             return await _context.CropSeasons
                 .Include(cs => cs.Field)
                 .AsNoTracking()
@@ -119,8 +119,8 @@ namespace Infrastructure.Repositories
 
         public async Task<bool> HasDateConflictAsync(
             int fieldId, 
-            DateTime plantingDate, 
-            DateTime expectedHarvestDate, 
+            DateOnly plantingDate, 
+            DateOnly expectedHarvestDate, 
             int? excludeCropSeasonId = null)
         {
             // Verifica se existe alguma safra no mesmo campo com datas sobrepostas

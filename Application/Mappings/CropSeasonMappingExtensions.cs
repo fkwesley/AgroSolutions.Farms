@@ -16,18 +16,22 @@ namespace Application.Mappings
                 CropType = request.CropType,
                 PlantingDate = request.PlantingDate,
                 ExpectedHarvestDate = request.ExpectedHarvestDate,
-                Status = Domain.Enums.CropSeasonStatus.Planned,
+                HarvestDate = request.HarvestDate,
                 CreatedBy = request.CreatedBy
             };
         }
 
         /// <summary>
-        /// Maps a UpdateCropSeasonRequest to update a CropSeason entity.
+        /// Maps a UpdateCropSeasonRequest to update a CropSeason entity (partial update).
         /// </summary>
         public static void UpdateFromRequest(this CropSeason entity, UpdateCropSeasonRequest request)
         {
-            entity.PlantingDate = request.PlantingDate;
-            entity.ExpectedHarvestDate = request.ExpectedHarvestDate;
+            // Atualiza apenas os campos que foram fornecidos (não nulos)
+            if (request.CropType.HasValue)
+                entity.CropType = request.CropType.Value;
+
+            if (request.ExpectedHarvestDate.HasValue)
+                entity.ExpectedHarvestDate = request.ExpectedHarvestDate.Value;
         }
 
         /// <summary>
@@ -39,7 +43,7 @@ namespace Application.Mappings
             {
                 Id = entity.Id,
                 FieldId = entity.FieldId,
-                CropType = entity.CropType.ToString(),
+                CropType = entity.CropType,
                 PlantingDate = entity.PlantingDate,
                 ExpectedHarvestDate = entity.ExpectedHarvestDate,
                 HarvestDate = entity.HarvestDate,

@@ -15,6 +15,9 @@ namespace API.Controllers.v1
     [ApiVersion("1.0")]
     [Authorize(Roles = "Admin")]
     [Route("v{version:apiVersion}/fields")]
+    [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status500InternalServerError)]
     public class FieldsController : ControllerBase
     {
         private readonly IFieldService _fieldService;
@@ -31,9 +34,6 @@ namespace API.Controllers.v1
         /// <returns>List of Fields</returns>
         [HttpGet(Name = "GetAllFields")]
         [ProducesResponseType(typeof(IEnumerable<FieldResponse>), StatusCodes.Status200OK)]
-        [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status401Unauthorized)]
-        [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status403Forbidden)]
-        [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status500InternalServerError)]
         public async Task<IActionResult> GetAll()
         {
             var fields = await _fieldService.GetAllFieldsAsync();
@@ -50,7 +50,6 @@ namespace API.Controllers.v1
         [HttpGet("{fieldId}", Name = "GetFieldById")]
         [ProducesResponseType(typeof(FieldResponse), StatusCodes.Status200OK)]
         [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status404NotFound)]
-        [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status500InternalServerError)]
         public async Task<IActionResult> GetById(int fieldId)
         {
             var field = await _fieldService.GetFieldByIdAsync(fieldId);
@@ -67,7 +66,6 @@ namespace API.Controllers.v1
         [HttpGet("farm/{farmId}", Name = "GetFieldsByFarm")]
         [ProducesResponseType(typeof(IEnumerable<FieldResponse>), StatusCodes.Status200OK)]
         [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status404NotFound)]
-        [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status500InternalServerError)]
         public async Task<IActionResult> GetByFarmId(int farmId)
         {
             var fields = await _fieldService.GetFieldsByFarmIdAsync(farmId);
@@ -86,13 +84,9 @@ namespace API.Controllers.v1
         [HttpPost(Name = "AddField")]
         [ProducesResponseType(typeof(FieldResponse), StatusCodes.Status201Created)]
         [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status400BadRequest)]
-        [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status401Unauthorized)]
-        [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status403Forbidden)]
-        [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status500InternalServerError)]
         public async Task<IActionResult> Add([FromBody] AddFieldRequest request)
         {
-            // Extrai o UserId do token JWT e seta como ProducerId
-            request.CreatedBy = HttpContext.User?.FindFirst("user_id")?.Value ?? "anonymous"; // getting user_id from context (provided by token)
+            request.CreatedBy = HttpContext.User?.FindFirst("user_id")?.Value ?? "anonymous";
 
             var addedField = await _fieldService.AddFieldAsync(request);
             var version = HttpContext.Request.RouteValues["version"]?.ToString() ?? "1.0";
@@ -115,14 +109,10 @@ namespace API.Controllers.v1
         [ProducesResponseType(typeof(FieldResponse), StatusCodes.Status200OK)]
         [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status400BadRequest)]
         [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status404NotFound)]
-        [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status401Unauthorized)]
-        [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status403Forbidden)]
-        [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status500InternalServerError)]
         public async Task<IActionResult> Update(int fieldId, [FromBody] UpdateFieldRequest request)
         {
-            // Extrai o UserId do token JWT e seta como ProducerId
             request.Id = fieldId; 
-            request.UpdatedBy = HttpContext.User?.FindFirst("user_id")?.Value ?? "anonymous"; // getting user_id from context (provided by token)
+            request.UpdatedBy = HttpContext.User?.FindFirst("user_id")?.Value ?? "anonymous";
 
             var updatedField = await _fieldService.UpdateFieldAsync(request);
             var version = HttpContext.Request.RouteValues["version"]?.ToString() ?? "1.0";
@@ -142,9 +132,6 @@ namespace API.Controllers.v1
         [ProducesResponseType(StatusCodes.Status204NoContent)]
         [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status404NotFound)]
         [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status400BadRequest)]
-        [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status401Unauthorized)]
-        [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status403Forbidden)]
-        [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status500InternalServerError)]
         public async Task<IActionResult> Delete(int fieldId)
         {
             await _fieldService.DeleteFieldAsync(fieldId);

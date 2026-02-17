@@ -22,6 +22,6 @@ namespace Domain.Repositories
         /// <param name="plantingDate">Data de plantio</param>
         /// <param name="expectedHarvestDate">Data prevista de colheita</param>
         /// <param name="excludeCropSeasonId">ID da safra a ser excluída da verificação (para updates)</param>
-        Task<bool> HasDateConflictAsync(int fieldId, DateTime plantingDate, DateTime expectedHarvestDate, int? excludeCropSeasonId = null);
+        Task<bool> HasDateConflictAsync(int fieldId, DateOnly plantingDate, DateOnly expectedHarvestDate, int? excludeCropSeasonId = null);
     }
 }

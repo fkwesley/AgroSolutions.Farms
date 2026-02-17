@@ -18,8 +18,8 @@ namespace Tests.UnitTests.Application.Mappings
             {
                 FieldId = 1,
                 CropType = CropType.Soybean,
-                PlantingDate = DateTime.UtcNow.AddDays(10),
-                ExpectedHarvestDate = DateTime.UtcNow.AddDays(130),
+                PlantingDate = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(10)),
+                ExpectedHarvestDate = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(130)),
                 CreatedBy = "user123"
             };
 
@@ -49,18 +49,19 @@ namespace Tests.UnitTests.Application.Mappings
                 Id = 1,
                 FieldId = 1,
                 CropType = CropType.Soybean,
-                PlantingDate = DateTime.UtcNow.AddDays(10),
-                ExpectedHarvestDate = DateTime.UtcNow.AddDays(130),
+                PlantingDate = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(10)),
+                ExpectedHarvestDate = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(130)),
                 Status = CropSeasonStatus.Planned,
                 CreatedBy = "user123",
                 CreatedAt = DateTime.UtcNow.AddDays(-5)
             };
 
+            var newExpectedHarvestDate = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(135));
             var updateRequest = new UpdateCropSeasonRequest
             {
                 Id = 1,
-                PlantingDate = DateTime.UtcNow.AddDays(15),
-                ExpectedHarvestDate = DateTime.UtcNow.AddDays(135),
+                CropType = CropType.Corn, // Mudando o tipo de cultura
+                ExpectedHarvestDate = newExpectedHarvestDate,
                 UpdatedBy = "user456"
             };
 
@@ -70,9 +71,9 @@ namespace Tests.UnitTests.Application.Mappings
             // Assert
             Assert.Equal(1, existingEntity.Id); // ID não muda
             Assert.Equal(1, existingEntity.FieldId); // FieldId não muda
-            Assert.Equal(CropType.Soybean, existingEntity.CropType); // CropType não muda
-            Assert.Equal(updateRequest.PlantingDate, existingEntity.PlantingDate); // Atualizado
-            Assert.Equal(updateRequest.ExpectedHarvestDate, existingEntity.ExpectedHarvestDate); // Atualizado
+            Assert.Equal(CropType.Corn, existingEntity.CropType); // CropType atualizado
+            Assert.Equal(DateOnly.FromDateTime(DateTime.UtcNow.AddDays(10)), existingEntity.PlantingDate); // PlantingDate não muda
+            Assert.Equal(newExpectedHarvestDate, existingEntity.ExpectedHarvestDate); // ExpectedHarvestDate atualizado
             Assert.Equal(CropSeasonStatus.Planned, existingEntity.Status); // Status não muda
             Assert.Equal("user123", existingEntity.CreatedBy); // CreatedBy não muda
         }
@@ -85,21 +86,25 @@ namespace Tests.UnitTests.Application.Mappings
         public void ToResponse_ShouldMapAllProperties()
         {
             // Arrange
-            var plantingDate = DateTime.UtcNow.AddDays(-120);
-            var harvestDate = DateTime.UtcNow;
+            var plantingDate = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(-120));
+            var expectedHarvestDate = DateOnly.FromDateTime(DateTime.UtcNow);
+            var harvestDate = DateOnly.FromDateTime(DateTime.UtcNow);
+            var createdAt = DateTime.UtcNow.AddDays(-130);
+            var updatedAt = DateTime.UtcNow;
+
             var entity = new CropSeason
             {
                 Id = 1,
                 FieldId = 2,
                 CropType = CropType.Soybean,
                 PlantingDate = plantingDate,
-                ExpectedHarvestDate = plantingDate.AddDays(120),
+                ExpectedHarvestDate = expectedHarvestDate,
                 HarvestDate = harvestDate,
                 Status = CropSeasonStatus.Finished,
                 CreatedBy = "user123",
-                CreatedAt = DateTime.UtcNow.AddDays(-130),
+                CreatedAt = createdAt,
                 UpdatedBy = "user456",
-                UpdatedAt = DateTime.UtcNow
+                UpdatedAt = updatedAt
             };
 
             // Act
@@ -109,22 +114,24 @@ namespace Tests.UnitTests.Application.Mappings
             Assert.NotNull(response);
             Assert.Equal(1, response.Id);
             Assert.Equal(2, response.FieldId);
-            Assert.Equal(CropType.Soybean.ToString(), response.CropType);
+            Assert.Equal(CropType.Soybean, response.CropType);
             Assert.Equal(plantingDate, response.PlantingDate);
+            Assert.Equal(expectedHarvestDate, response.ExpectedHarvestDate);
             Assert.Equal(harvestDate, response.HarvestDate);
             Assert.Equal(CropSeasonStatus.Finished.ToString(), response.Status);
             Assert.Equal(120, response.CycleDurationDays);
             Assert.False(response.IsOverdue); // Finished crops are not overdue
-            Assert.NotNull(response.CreatedAt);
-            Assert.NotNull(response.UpdatedAt);
+            Assert.Equal(createdAt, response.CreatedAt);
+            Assert.Equal(updatedAt, response.UpdatedAt);
         }
 
         [Fact]
         public void ToResponse_WithoutHarvestDate_ShouldCalculateExpectedDuration()
         {
             // Arrange
-            var plantingDate = DateTime.UtcNow.AddDays(10);
-            var expectedHarvestDate = plantingDate.AddDays(120);
+            var plantingDate = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(10));
+            var expectedHarvestDate = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(130));
+
             var entity = new CropSeason
             {
                 Id = 1,
@@ -156,8 +163,8 @@ namespace Tests.UnitTests.Application.Mappings
                 Id = 1,
                 FieldId = 2,
                 CropType = CropType.Soybean,
-                PlantingDate = DateTime.UtcNow.AddDays(-150),
-                ExpectedHarvestDate = DateTime.UtcNow.AddDays(-10), // Past date
+                PlantingDate = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(-150)),
+                ExpectedHarvestDate = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(-10)), // Past date
                 Status = CropSeasonStatus.Active,
                 CreatedBy = "user123",
                 CreatedAt = DateTime.UtcNow.AddDays(-150)

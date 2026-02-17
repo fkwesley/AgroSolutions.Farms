@@ -74,11 +74,11 @@ namespace Tests.UnitTests.Application.Services
             // Assert
             Assert.NotNull(result);
             Assert.Equal(1, result.Id);
-            Assert.Equal(CropType.Soybean.ToString(), result.CropType);
+            Assert.Equal(CropType.Soybean, result.CropType);
         }
 
         [Fact]
-        public async Task GetCropSeasonByIdAsync_WithInvalidId_ShouldThrowValidationException()
+        public async Task GetCropSeasonByIdAsync_WithInvalidId_ShouldThrowKeyNotFoundException()
         {
             // Arrange
             _mockCropSeasonRepository
@@ -86,7 +86,7 @@ namespace Tests.UnitTests.Application.Services
                 .ReturnsAsync((CropSeason?)null);
 
             // Act & Assert
-            await Assert.ThrowsAsync<ValidationException>(
+            await Assert.ThrowsAsync<KeyNotFoundException>(
                 () => _cropSeasonService.GetCropSeasonByIdAsync(999));
         }
 
@@ -122,7 +122,7 @@ namespace Tests.UnitTests.Application.Services
         }
 
         [Fact]
-        public async Task GetCropSeasonsByFieldIdAsync_WithInvalidFieldId_ShouldThrowValidationException()
+        public async Task GetCropSeasonsByFieldIdAsync_WithInvalidFieldId_ShouldThrowKeyNotFoundException()
         {
             // Arrange
             _mockFieldRepository
@@ -130,7 +130,7 @@ namespace Tests.UnitTests.Application.Services
                 .ReturnsAsync((Field?)null);
 
             // Act & Assert
-            await Assert.ThrowsAsync<ValidationException>(
+            await Assert.ThrowsAsync<KeyNotFoundException>(
                 () => _cropSeasonService.GetCropSeasonsByFieldIdAsync(999));
         }
 
@@ -147,8 +147,8 @@ namespace Tests.UnitTests.Application.Services
             {
                 FieldId = 1,
                 CropType = CropType.Soybean,
-                PlantingDate = DateTime.UtcNow.AddDays(10),
-                ExpectedHarvestDate = DateTime.UtcNow.AddDays(130),
+                PlantingDate = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(10)),
+                ExpectedHarvestDate = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(130)),
                 CreatedBy = "user123"
             };
 
@@ -179,15 +179,15 @@ namespace Tests.UnitTests.Application.Services
         }
 
         [Fact]
-        public async Task AddCropSeasonAsync_WithNonExistentField_ShouldThrowValidationException()
+        public async Task AddCropSeasonAsync_WithNonExistentField_ShouldThrowKeyNotFoundException()
         {
             // Arrange
             var request = new AddCropSeasonRequest
             {
                 FieldId = 999,
                 CropType = CropType.Soybean,
-                PlantingDate = DateTime.UtcNow.AddDays(10),
-                ExpectedHarvestDate = DateTime.UtcNow.AddDays(130),
+                PlantingDate = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(10)),
+                ExpectedHarvestDate = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(130)),
                 CreatedBy = "user123"
             };
 
@@ -196,7 +196,7 @@ namespace Tests.UnitTests.Application.Services
                 .ReturnsAsync((Field?)null);
 
             // Act & Assert
-            await Assert.ThrowsAsync<ValidationException>(
+            await Assert.ThrowsAsync<KeyNotFoundException>(
                 () => _cropSeasonService.AddCropSeasonAsync(request));
         }
 
@@ -211,8 +211,8 @@ namespace Tests.UnitTests.Application.Services
             {
                 FieldId = 1,
                 CropType = CropType.Soybean,
-                PlantingDate = DateTime.UtcNow.AddDays(10),
-                ExpectedHarvestDate = DateTime.UtcNow.AddDays(130),
+                PlantingDate = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(10)),
+                ExpectedHarvestDate = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(130)),
                 CreatedBy = "user123"
             };
 
@@ -235,8 +235,8 @@ namespace Tests.UnitTests.Application.Services
             {
                 FieldId = 1,
                 CropType = CropType.Soybean,
-                PlantingDate = DateTime.UtcNow.AddDays(10),
-                ExpectedHarvestDate = DateTime.UtcNow.AddDays(130),
+                PlantingDate = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(10)),
+                ExpectedHarvestDate = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(130)),
                 CreatedBy = "user123"
             };
 
@@ -255,6 +255,92 @@ namespace Tests.UnitTests.Application.Services
             Assert.Contains("overlapping", exception.Message);
         }
 
+        [Fact]
+        public async Task AddCropSeasonAsync_WithValidHarvestDate_ShouldCreateFinishedCropSeason()
+        {
+            // Arrange
+            var field = CreateValidField(1, 1);
+            var plantingDate = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(-120));
+            var harvestDate = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(-10));
+
+            var request = new AddCropSeasonRequest
+            {
+                FieldId = 1,
+                CropType = CropType.Soybean,
+                PlantingDate = plantingDate,
+                ExpectedHarvestDate = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(10)),
+                HarvestDate = harvestDate, // Informando data de colheita passada
+                CreatedBy = "user123"
+            };
+
+            _mockFieldRepository
+                .Setup(r => r.GetFieldByIdAsync(1))
+                .ReturnsAsync(field);
+
+            _mockCropSeasonRepository
+                .Setup(r => r.HasDateConflictAsync(1, request.PlantingDate, request.ExpectedHarvestDate, null))
+                .ReturnsAsync(false);
+
+            _mockCropSeasonRepository
+                .Setup(r => r.AddCropSeasonAsync(It.IsAny<CropSeason>()))
+                .ReturnsAsync((CropSeason cs) =>
+                {
+                    cs.Id = 1;
+                    return cs;
+                });
+
+            // Act
+            var result = await _cropSeasonService.AddCropSeasonAsync(request);
+
+            // Assert
+            Assert.NotNull(result);
+            Assert.Equal(1, result.Id);
+            Assert.Equal(harvestDate, result.HarvestDate);
+            Assert.Equal(CropSeasonStatus.Finished.ToString(), result.Status); // Status deve ser Finished
+        }
+
+        [Fact]
+        public async Task AddCropSeasonAsync_WithHarvestDateToday_ShouldCreateFinishedCropSeason()
+        {
+            // Arrange
+            var field = CreateValidField(1, 1);
+            var today = DateOnly.FromDateTime(DateTime.UtcNow);
+
+            var request = new AddCropSeasonRequest
+            {
+                FieldId = 1,
+                CropType = CropType.Soybean,
+                PlantingDate = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(-120)),
+                ExpectedHarvestDate = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(10)),
+                HarvestDate = today, // Data de colheita = hoje
+                CreatedBy = "user123"
+            };
+
+            _mockFieldRepository
+                .Setup(r => r.GetFieldByIdAsync(1))
+                .ReturnsAsync(field);
+
+            _mockCropSeasonRepository
+                .Setup(r => r.HasDateConflictAsync(1, request.PlantingDate, request.ExpectedHarvestDate, null))
+                .ReturnsAsync(false);
+
+            _mockCropSeasonRepository
+                .Setup(r => r.AddCropSeasonAsync(It.IsAny<CropSeason>()))
+                .ReturnsAsync((CropSeason cs) =>
+                {
+                    cs.Id = 1;
+                    return cs;
+                });
+
+            // Act
+            var result = await _cropSeasonService.AddCropSeasonAsync(request);
+
+            // Assert
+            Assert.NotNull(result);
+            Assert.Equal(today, result.HarvestDate);
+            Assert.Equal(CropSeasonStatus.Finished.ToString(), result.Status);
+        }
+
         #endregion
 
         #region UpdateCropSeasonAsync Tests
@@ -264,11 +350,12 @@ namespace Tests.UnitTests.Application.Services
         {
             // Arrange
             var existingCropSeason = CreateValidCropSeason(1, 1);
+            var newExpectedHarvestDate = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(135));
             var request = new UpdateCropSeasonRequest
             {
                 Id = 1,
-                PlantingDate = DateTime.UtcNow.AddDays(15),
-                ExpectedHarvestDate = DateTime.UtcNow.AddDays(135),
+                CropType = CropType.Corn,
+                ExpectedHarvestDate = newExpectedHarvestDate,
                 UpdatedBy = "user123"
             };
 
@@ -277,7 +364,7 @@ namespace Tests.UnitTests.Application.Services
                 .ReturnsAsync(existingCropSeason);
 
             _mockCropSeasonRepository
-                .Setup(r => r.HasDateConflictAsync(1, request.PlantingDate, request.ExpectedHarvestDate, 1))
+                .Setup(r => r.HasDateConflictAsync(1, existingCropSeason.PlantingDate, newExpectedHarvestDate, 1))
                 .ReturnsAsync(false);
 
             _mockCropSeasonRepository
@@ -293,14 +380,13 @@ namespace Tests.UnitTests.Application.Services
         }
 
         [Fact]
-        public async Task UpdateCropSeasonAsync_WithNonExistentCropSeason_ShouldThrowValidationException()
+        public async Task UpdateCropSeasonAsync_WithNonExistentCropSeason_ShouldThrowKeyNotFoundException()
         {
             // Arrange
             var request = new UpdateCropSeasonRequest
             {
                 Id = 999,
-                PlantingDate = DateTime.UtcNow.AddDays(15),
-                ExpectedHarvestDate = DateTime.UtcNow.AddDays(135),
+                ExpectedHarvestDate = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(135)),
                 UpdatedBy = "user123"
             };
 
@@ -309,7 +395,7 @@ namespace Tests.UnitTests.Application.Services
                 .ReturnsAsync((CropSeason?)null);
 
             // Act & Assert
-            await Assert.ThrowsAsync<ValidationException>(
+            await Assert.ThrowsAsync<KeyNotFoundException>(
                 () => _cropSeasonService.UpdateCropSeasonAsync(request));
         }
 
@@ -317,17 +403,22 @@ namespace Tests.UnitTests.Application.Services
         public async Task UpdateCropSeasonAsync_WithActiveCropSeason_ShouldThrowValidationException()
         {
             // Arrange
-            var existingCropSeason = CreateValidCropSeason(1, 1);
-            // Set status to Active without calling StartPlanting to avoid BusinessException
-            var statusField = typeof(CropSeason).GetField("<Status>k__BackingField", 
-                System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
-            statusField?.SetValue(existingCropSeason, CropSeasonStatus.Active);
+            // Cria uma safra com PlantingDate no passado para ter Status = Active automaticamente
+            var existingCropSeason = new CropSeason
+            {
+                Id = 1,
+                FieldId = 1,
+                CropType = CropType.Soybean,
+                PlantingDate = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(-10)), // Passado = Active
+                ExpectedHarvestDate = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(110)),
+                CreatedBy = "system",
+                CreatedAt = DateTime.UtcNow.AddDays(-10)
+            };
 
             var request = new UpdateCropSeasonRequest
             {
                 Id = 1,
-                PlantingDate = DateTime.UtcNow.AddDays(15),
-                ExpectedHarvestDate = DateTime.UtcNow.AddDays(135),
+                ExpectedHarvestDate = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(135)),
                 UpdatedBy = "user123"
             };
 
@@ -346,11 +437,11 @@ namespace Tests.UnitTests.Application.Services
         {
             // Arrange
             var existingCropSeason = CreateValidCropSeason(1, 1);
+            var newExpectedHarvestDate = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(135));
             var request = new UpdateCropSeasonRequest
             {
                 Id = 1,
-                PlantingDate = DateTime.UtcNow.AddDays(15),
-                ExpectedHarvestDate = DateTime.UtcNow.AddDays(135),
+                ExpectedHarvestDate = newExpectedHarvestDate,
                 UpdatedBy = "user123"
             };
 
@@ -359,7 +450,7 @@ namespace Tests.UnitTests.Application.Services
                 .ReturnsAsync(existingCropSeason);
 
             _mockCropSeasonRepository
-                .Setup(r => r.HasDateConflictAsync(1, request.PlantingDate, request.ExpectedHarvestDate, 1))
+                .Setup(r => r.HasDateConflictAsync(1, existingCropSeason.PlantingDate, newExpectedHarvestDate, 1))
                 .ReturnsAsync(true);
 
             // Act & Assert
@@ -377,8 +468,17 @@ namespace Tests.UnitTests.Application.Services
         public async Task StartPlantingAsync_WithValidCropSeason_ShouldStartPlanting()
         {
             // Arrange
-            var cropSeason = CreateValidCropSeason(1, 1);
-            cropSeason.PlantingDate = DateTime.UtcNow.AddDays(-1); // Past date to allow start
+            // Cria safra com PlantingDate = amanhã (Planned), pode iniciar plantio antecipado
+            var cropSeason = new CropSeason
+            {
+                Id = 1,
+                FieldId = 1,
+                CropType = CropType.Soybean,
+                PlantingDate = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(1)), // Amanhã = Planned
+                ExpectedHarvestDate = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(121)),
+                CreatedBy = "system",
+                CreatedAt = DateTime.UtcNow
+            };
 
             _mockCropSeasonRepository
                 .Setup(r => r.GetCropSeasonByIdAsync(1))
@@ -398,7 +498,7 @@ namespace Tests.UnitTests.Application.Services
         }
 
         [Fact]
-        public async Task StartPlantingAsync_WithNonExistentCropSeason_ShouldThrowValidationException()
+        public async Task StartPlantingAsync_WithNonExistentCropSeason_ShouldThrowKeyNotFoundException()
         {
             // Arrange
             _mockCropSeasonRepository
@@ -406,7 +506,7 @@ namespace Tests.UnitTests.Application.Services
                 .ReturnsAsync((CropSeason?)null);
 
             // Act & Assert
-            await Assert.ThrowsAsync<ValidationException>(
+            await Assert.ThrowsAsync<KeyNotFoundException>(
                 () => _cropSeasonService.StartPlantingAsync(999, "user123"));
         }
 
@@ -418,11 +518,19 @@ namespace Tests.UnitTests.Application.Services
         public async Task FinishHarvestAsync_WithValidData_ShouldFinishHarvest()
         {
             // Arrange
-            var cropSeason = CreateValidCropSeason(1, 1);
-            cropSeason.PlantingDate = DateTime.UtcNow.AddDays(-120);
-            cropSeason.StartPlanting();
+            // Cria uma safra já ativa (PlantingDate no passado)
+            var cropSeason = new CropSeason
+            {
+                Id = 1,
+                FieldId = 1,
+                CropType = CropType.Soybean,
+                PlantingDate = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(-120)), // Passado = Active
+                ExpectedHarvestDate = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(10)),
+                CreatedBy = "system",
+                CreatedAt = DateTime.UtcNow.AddDays(-120)
+            };
 
-            var harvestDate = DateTime.UtcNow;
+            var harvestDate = DateOnly.FromDateTime(DateTime.UtcNow);
 
             _mockCropSeasonRepository
                 .Setup(r => r.GetCropSeasonByIdAsync(1))
@@ -471,9 +579,17 @@ namespace Tests.UnitTests.Application.Services
         public async Task DeleteCropSeasonAsync_WithActiveCropSeason_ShouldThrowValidationException()
         {
             // Arrange
-            var cropSeason = CreateValidCropSeason(1, 1);
-            cropSeason.PlantingDate = DateTime.UtcNow.AddDays(-1);
-            cropSeason.StartPlanting();
+            // Cria uma safra com PlantingDate no passado para ter Status = Active automaticamente
+            var cropSeason = new CropSeason
+            {
+                Id = 1,
+                FieldId = 1,
+                CropType = CropType.Soybean,
+                PlantingDate = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(-10)), // Passado = Active
+                ExpectedHarvestDate = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(110)),
+                CreatedBy = "system",
+                CreatedAt = DateTime.UtcNow.AddDays(-10)
+            };
 
             _mockCropSeasonRepository
                 .Setup(r => r.GetCropSeasonByIdAsync(1))
@@ -496,9 +612,9 @@ namespace Tests.UnitTests.Application.Services
                 Id = id,
                 FieldId = fieldId,
                 CropType = CropType.Soybean,
-                PlantingDate = DateTime.UtcNow.AddDays(10),
-                ExpectedHarvestDate = DateTime.UtcNow.AddDays(130),
-                Status = CropSeasonStatus.Planned,
+                PlantingDate = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(10)), // Data futura = Planned
+                ExpectedHarvestDate = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(130)),
+                // Status é calculado automaticamente baseado nas datas
                 CreatedBy = "system",
                 CreatedAt = DateTime.UtcNow
             };

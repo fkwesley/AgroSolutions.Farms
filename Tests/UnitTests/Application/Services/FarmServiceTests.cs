@@ -71,7 +71,7 @@ namespace Tests.UnitTests.Application.Services
         }
 
         [Fact]
-        public async Task GetFarmByIdAsync_WithInvalidId_ShouldThrowValidationException()
+        public async Task GetFarmByIdAsync_WithInvalidId_ShouldThrowKeyNotFoundException()
         {
             // Arrange
             _mockFarmRepository
@@ -79,7 +79,7 @@ namespace Tests.UnitTests.Application.Services
                 .ReturnsAsync((Farm?)null);
 
             // Act & Assert
-            await Assert.ThrowsAsync<ValidationException>(
+            await Assert.ThrowsAsync<KeyNotFoundException>(
                 () => _farmService.GetFarmByIdAsync(999));
         }
 
@@ -195,7 +195,7 @@ namespace Tests.UnitTests.Application.Services
         }
 
         [Fact]
-        public async Task UpdateFarmAsync_WithNonExistentFarm_ShouldThrowValidationException()
+        public async Task UpdateFarmAsync_WithNonExistentFarm_ShouldThrowKeyNotFoundException()
         {
             // Arrange
             var request = new UpdateFarmRequest
@@ -217,7 +217,7 @@ namespace Tests.UnitTests.Application.Services
                 .ReturnsAsync((Farm?)null);
 
             // Act & Assert
-            await Assert.ThrowsAsync<ValidationException>(
+            await Assert.ThrowsAsync<KeyNotFoundException>(
                 () => _farmService.UpdateFarmAsync(request));
         }
 
@@ -306,7 +306,7 @@ namespace Tests.UnitTests.Application.Services
         }
 
         [Fact]
-        public async Task DeleteFarmAsync_WithNonExistentFarm_ShouldThrowValidationException()
+        public async Task DeleteFarmAsync_WithNonExistentFarm_ShouldThrowKeyNotFoundException()
         {
             // Arrange
             _mockFarmRepository
@@ -314,7 +314,7 @@ namespace Tests.UnitTests.Application.Services
                 .ReturnsAsync((Farm?)null);
 
             // Act & Assert
-            await Assert.ThrowsAsync<ValidationException>(
+            await Assert.ThrowsAsync<KeyNotFoundException>(
                 () => _farmService.DeleteFarmAsync(999));
         }
 

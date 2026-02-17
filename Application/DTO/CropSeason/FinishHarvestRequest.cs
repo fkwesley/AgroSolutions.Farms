@@ -5,6 +5,6 @@ namespace Application.DTO.CropSeason
     public class FinishHarvestRequest
     {
         [Required]
-        public required DateTime HarvestDate { get; set; }
+        public required DateOnly HarvestDate { get; set; }
     }
 }

@@ -40,7 +40,7 @@ namespace Application.Services
             var field = await _fieldRepository.GetFieldByIdAsync(fieldId);
 
             if (field == null)
-                throw new ValidationException($"Field with ID {fieldId} not found.");
+                throw new KeyNotFoundException($"Field with ID {fieldId} not found.");
 
             return field.ToResponse();
         }
@@ -49,7 +49,7 @@ namespace Application.Services
         {
             // Valida se a fazenda existe
             if (!(await _farmRepository.GetAllFarmsAsync()).Any(f => f.Id == farmId))
-                throw new ValidationException($"Farm with ID {farmId} not found.");
+                throw new KeyNotFoundException($"Farm with ID {farmId} not found.");
 
             var fields = await _fieldRepository.GetFieldsByFarmIdAsync(farmId);
             _logger.LogInformation("Retrieved {FieldCount} fields for farm {FarmId}", 
@@ -59,18 +59,18 @@ namespace Application.Services
 
         public async Task<FieldResponse> AddFieldAsync(AddFieldRequest request)
         {
-            // Valida se o Field já existe
-            if (await _fieldRepository.FieldExistsAsync(request.Name))
-                throw new ValidationException($"Field with name {request.Name} already exists.");
-
             // Valida se a fazenda existe
             var farm = await _farmRepository.GetFarmByIdAsync(request.FarmId);
             if (farm == null)
-                throw new ValidationException($"Farm with ID {request.FarmId} not found.");
+                throw new KeyNotFoundException($"Farm with ID {request.FarmId} not found.");
 
             // Valida se a fazenda está ativa
             if (!farm.IsActive)
                 throw new ValidationException($"Cannot add field to inactive farm {request.FarmId}.");
+
+            // Valida se o Field já existe
+            if (await _fieldRepository.FieldExistsAsync(request.Name))
+                throw new ValidationException($"Field with name {request.Name} already exists.");
 
             // Valida se há área disponível na fazenda
             var totalFieldsArea = await _fieldRepository.GetTotalFieldsAreaByFarmIdAsync(request.FarmId);
@@ -91,12 +91,12 @@ namespace Application.Services
             var existingField = await _fieldRepository.GetFieldByIdAsync(request.Id);
 
             if (existingField == null)
-                throw new ValidationException($"Field with ID {request.Id} not found.");
+                throw new KeyNotFoundException($"Field with ID {request.Id} not found.");
 
             // Valida se a fazenda existe e carrega seus dados
             var farm = await _farmRepository.GetFarmByIdAsync(existingField.FarmId);
             if (farm == null)
-                throw new ValidationException($"Farm with ID {existingField.FarmId} not found.");
+                throw new KeyNotFoundException($"Farm with ID {existingField.FarmId} not found.");
 
             // Valida se a nova área não excede a área disponível na fazenda
             var totalOtherFieldsArea = await _fieldRepository.GetTotalFieldsAreaByFarmIdAsync(existingField.FarmId, excludeFieldId: request.Id);
@@ -121,7 +121,7 @@ namespace Application.Services
             var field = await _fieldRepository.GetFieldByIdAsync(fieldId);
 
             if (field == null)
-                throw new ValidationException($"Field with ID {fieldId} not found.");
+                throw new KeyNotFoundException($"Field with ID {fieldId} not found.");
 
             // Validação: não permitir deletar campo com safras ativas
             if (field.CropSeasons.Any(cs => cs.Status == Domain.Enums.CropSeasonStatus.Active))

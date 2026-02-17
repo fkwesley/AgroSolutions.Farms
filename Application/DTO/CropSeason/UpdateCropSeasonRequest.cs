@@ -1,3 +1,4 @@
+using Domain.Enums;
 using System.ComponentModel.DataAnnotations;
 using System.Text.Json.Serialization;
 
@@ -8,15 +9,12 @@ namespace Application.DTO.CropSeason
         [JsonIgnore]
         public int Id { get; set; }
 
-        [Required]
-        public required DateTime PlantingDate { get; set; }
+        [EnumDataType(typeof(CropType), ErrorMessage = "Invalid crop type")]
+        public CropType? CropType { get; set; }
 
-        [Required]
-        public required DateTime ExpectedHarvestDate { get; set; }
-
-
+        public DateOnly? ExpectedHarvestDate { get; set; }
 
         [JsonIgnore]
-        public required string UpdatedBy { get; set; }
+        public string UpdatedBy { get; set; } = string.Empty;
     }
 }

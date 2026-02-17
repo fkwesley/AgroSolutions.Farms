@@ -6,6 +6,7 @@ namespace Application.DTO.Field
     public class AddFieldRequest
     {
         [Required]
+        [Range(1, int.MaxValue, ErrorMessage = "FarmId must be a positive number")]
         public int FarmId { get; set; }
 
         [Required]
@@ -27,6 +28,6 @@ namespace Application.DTO.Field
         public bool IsActive { get; set; } = true;
 
         [JsonIgnore]
-        public required string CreatedBy { get; set; }
+        public string CreatedBy { get; set; } = string.Empty;
     }
 }

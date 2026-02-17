@@ -41,7 +41,7 @@ namespace Application.Services
             var cropSeason = await _cropSeasonRepository.GetCropSeasonByIdAsync(cropSeasonId);
 
             if (cropSeason == null)
-                throw new ValidationException($"Crop season with ID {cropSeasonId} not found.");
+                throw new KeyNotFoundException($"Crop season with ID {cropSeasonId} not found.");
 
             return cropSeason.ToResponse();
         }
@@ -51,7 +51,7 @@ namespace Application.Services
             // Valida se o campo existe
             var field = await _fieldRepository.GetFieldByIdAsync(fieldId);
             if (field == null)
-                throw new ValidationException($"Field with ID {fieldId} not found.");
+                throw new KeyNotFoundException($"Field with ID {fieldId} not found.");
 
             var cropSeasons = await _cropSeasonRepository.GetCropSeasonsByFieldIdAsync(fieldId);
             _logger.LogInformation("Retrieved {CropSeasonCount} crop seasons for field {FieldId}", 
@@ -79,7 +79,7 @@ namespace Application.Services
             // Valida se o campo existe
             var field = await _fieldRepository.GetFieldByIdAsync(request.FieldId);
             if (field == null)
-                throw new ValidationException($"Field with ID {request.FieldId} not found.");
+                throw new KeyNotFoundException($"Field with ID {request.FieldId} not found.");
 
             // Valida se o campo está ativo
             if (!field.IsActive)
@@ -106,21 +106,34 @@ namespace Application.Services
             var existingCropSeason = await _cropSeasonRepository.GetCropSeasonByIdAsync(request.Id);
 
             if (existingCropSeason == null)
-                throw new ValidationException($"Crop season with ID {request.Id} not found.");
+                throw new KeyNotFoundException($"Crop season with ID {request.Id} not found.");
 
-            // Apenas safras planejadas podem ter datas alteradas
+            // Valida que pelo menos um campo foi fornecido para atualização
+            if (!request.CropType.HasValue && !request.ExpectedHarvestDate.HasValue)
+                throw new ValidationException("At least one field must be provided for update (CropType or ExpectedHarvestDate).");
+
+            // Apenas safras planejadas podem ser atualizadas (CropType, datas, etc)
             if (existingCropSeason.Status != CropSeasonStatus.Planned)
-                throw new ValidationException($"Cannot update crop season {request.Id}. Only planned crop seasons can be updated.");
+                throw new ValidationException($"Cannot update crop season {request.Id}. " +
+                    "Only planned crop seasons can be updated. " +
+                    $"Current status: {existingCropSeason.Status}.");
 
-            // Valida conflito de datas (excluindo a própria safra)
-            if (await _cropSeasonRepository.HasDateConflictAsync(
-                                                existingCropSeason.FieldId,
-                                                request.PlantingDate,
-                                                request.ExpectedHarvestDate,
-                                                excludeCropSeasonId: request.Id))
-                throw new ValidationException($"Field is not available for the updated period " +
-                                    $"from {request.PlantingDate:yyyy-MM-dd} to {request.ExpectedHarvestDate:yyyy-MM-dd}. " +
-                                    "There is an overlapping crop season.");
+            // Valida conflito de datas apenas se a data de colheita foi fornecida
+            if (request.ExpectedHarvestDate.HasValue)
+            {
+                var newExpectedHarvestDate = request.ExpectedHarvestDate.Value;
+
+                if (await _cropSeasonRepository.HasDateConflictAsync(
+                    existingCropSeason.FieldId,
+                    existingCropSeason.PlantingDate,
+                    newExpectedHarvestDate,
+                    excludeCropSeasonId: request.Id))
+                {
+                    throw new ValidationException($"Field is not available for the updated period " +
+                        $"from {existingCropSeason.PlantingDate:yyyy-MM-dd} to {newExpectedHarvestDate:yyyy-MM-dd}. " +
+                        "There is an overlapping crop season.");
+                }
+            }
 
             existingCropSeason.UpdateFromRequest(request);
             existingCropSeason.SetUpdatedAudit(request.UpdatedBy);
@@ -131,60 +144,12 @@ namespace Application.Services
             return updatedCropSeason.ToResponse();
         }
 
-        public async Task<CropSeasonResponse> StartPlantingAsync(int cropSeasonId, string updatedBy)
-        {
-            var cropSeason = await _cropSeasonRepository.GetCropSeasonByIdAsync(cropSeasonId);
-
-            if (cropSeason == null)
-                throw new ValidationException($"Crop season with ID {cropSeasonId} not found.");
-
-            cropSeason.StartPlanting();
-            cropSeason.SetUpdatedAudit(updatedBy);
-            var updatedCropSeason = await _cropSeasonRepository.UpdateCropSeasonAsync(cropSeason);
-
-            _logger.LogInformation("Planting started for crop season {CropSeasonId} by {UpdatedBy}", 
-                cropSeasonId, updatedBy);
-            return updatedCropSeason.ToResponse();
-        }
-
-        public async Task<CropSeasonResponse> FinishHarvestAsync(int cropSeasonId, DateTime harvestDate, string updatedBy)
-        {
-            var cropSeason = await _cropSeasonRepository.GetCropSeasonByIdAsync(cropSeasonId);
-
-            if (cropSeason == null)
-                throw new ValidationException($"Crop season with ID {cropSeasonId} not found.");
-
-            cropSeason.FinishHarvest(harvestDate);
-            cropSeason.SetUpdatedAudit(updatedBy);
-            var updatedCropSeason = await _cropSeasonRepository.UpdateCropSeasonAsync(cropSeason);
-
-            _logger.LogInformation("Harvest finished for crop season {CropSeasonId} on {HarvestDate} by {UpdatedBy}", 
-                cropSeasonId, harvestDate, updatedBy);
-            return updatedCropSeason.ToResponse();
-        }
-
-        public async Task<CropSeasonResponse> CancelCropSeasonAsync(int cropSeasonId, string updatedBy)
-        {
-            var cropSeason = await _cropSeasonRepository.GetCropSeasonByIdAsync(cropSeasonId);
-
-            if (cropSeason == null)
-                throw new ValidationException($"Crop season with ID {cropSeasonId} not found.");
-
-            cropSeason.Cancel();
-            cropSeason.SetUpdatedAudit(updatedBy);
-            var updatedCropSeason = await _cropSeasonRepository.UpdateCropSeasonAsync(cropSeason);
-
-            _logger.LogInformation("Crop season {CropSeasonId} cancelled by {UpdatedBy}", 
-                cropSeasonId, updatedBy);
-            return updatedCropSeason.ToResponse();
-        }
-
         public async Task<bool> DeleteCropSeasonAsync(int cropSeasonId)
         {
             var cropSeason = await _cropSeasonRepository.GetCropSeasonByIdAsync(cropSeasonId);
 
             if (cropSeason == null)
-                throw new ValidationException($"Crop season with ID {cropSeasonId} not found.");
+                throw new KeyNotFoundException($"Crop season with ID {cropSeasonId} not found.");
 
             // Validação: não permitir deletar safra ativa
             if (cropSeason.Status == CropSeasonStatus.Active)
@@ -200,6 +165,55 @@ namespace Application.Services
                 _logger.LogInformation("Crop season {CropSeasonId} deleted successfully", cropSeasonId);
 
             return deleted;
+        }
+
+        public async Task<CropSeasonResponse> StartPlantingAsync(int cropSeasonId, string updatedBy)
+        {
+            var cropSeason = await _cropSeasonRepository.GetCropSeasonByIdAsync(cropSeasonId);
+
+            if (cropSeason == null)
+                throw new KeyNotFoundException($"Crop season with ID {cropSeasonId} not found.");
+
+            cropSeason.UpdatedBy = updatedBy;
+            cropSeason.StartPlanting();
+
+            var updatedCropSeason = await _cropSeasonRepository.UpdateCropSeasonAsync(cropSeason);
+
+            _logger.LogInformation("Crop season {CropSeasonId} planting started by {UpdatedBy}", cropSeasonId, updatedBy);
+            return updatedCropSeason.ToResponse();
+        }
+
+        public async Task<CropSeasonResponse> FinishHarvestAsync(int cropSeasonId, DateOnly harvestDate, string updatedBy)
+        {
+            var cropSeason = await _cropSeasonRepository.GetCropSeasonByIdAsync(cropSeasonId);
+
+            if (cropSeason == null)
+                throw new KeyNotFoundException($"Crop season with ID {cropSeasonId} not found.");
+
+            cropSeason.UpdatedBy = updatedBy;
+            cropSeason.FinishHarvest(harvestDate);
+
+            var updatedCropSeason = await _cropSeasonRepository.UpdateCropSeasonAsync(cropSeason);
+
+            _logger.LogInformation("Crop season {CropSeasonId} harvest finished on {HarvestDate} by {UpdatedBy}", 
+                cropSeasonId, harvestDate, updatedBy);
+            return updatedCropSeason.ToResponse();
+        }
+
+        public async Task<CropSeasonResponse> CancelCropSeasonAsync(int cropSeasonId, string updatedBy)
+        {
+            var cropSeason = await _cropSeasonRepository.GetCropSeasonByIdAsync(cropSeasonId);
+
+            if (cropSeason == null)
+                throw new KeyNotFoundException($"Crop season with ID {cropSeasonId} not found.");
+
+            cropSeason.UpdatedBy = updatedBy;
+            cropSeason.Cancel();
+
+            var updatedCropSeason = await _cropSeasonRepository.UpdateCropSeasonAsync(cropSeason);
+
+            _logger.LogInformation("Crop season {CropSeasonId} cancelled by {UpdatedBy}", cropSeasonId, updatedBy);
+            return updatedCropSeason.ToResponse();
         }
     }
 }

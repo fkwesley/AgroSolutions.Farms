@@ -132,8 +132,8 @@ namespace Tests.IntegrationTests.Infrastructure.Repositories
             {
                 FieldId = field.Id,
                 CropType = CropType.Corn,
-                PlantingDate = DateTime.UtcNow.AddDays(-150),
-                ExpectedHarvestDate = DateTime.UtcNow.AddDays(-10),
+                PlantingDate = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(-150)),
+                ExpectedHarvestDate = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(-10)),
                 Status = CropSeasonStatus.Active,
                 CreatedBy = "test",
                 CreatedAt = DateTime.UtcNow
@@ -163,8 +163,8 @@ namespace Tests.IntegrationTests.Infrastructure.Repositories
             {
                 FieldId = field.Id,
                 CropType = CropType.Wheat,
-                PlantingDate = DateTime.UtcNow.AddDays(20),
-                ExpectedHarvestDate = DateTime.UtcNow.AddDays(140),
+                PlantingDate = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(20)),
+                ExpectedHarvestDate = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(140)),
                 Status = CropSeasonStatus.Planned,
                 CreatedBy = "test",
                 CreatedAt = DateTime.UtcNow
@@ -192,17 +192,17 @@ namespace Tests.IntegrationTests.Infrastructure.Repositories
             // Arrange
             var existingCropSeason = _context.CropSeasons.First();
             var newPlantingDate = DateTime.UtcNow.AddDays(25);
-            
+
             var cropSeasonToUpdate = await _repository.GetCropSeasonByIdAsync(existingCropSeason.Id);
-            cropSeasonToUpdate!.PlantingDate = newPlantingDate;
-            cropSeasonToUpdate.ExpectedHarvestDate = newPlantingDate.AddDays(120);
+            cropSeasonToUpdate!.PlantingDate = DateOnly.FromDateTime(newPlantingDate);
+            cropSeasonToUpdate.ExpectedHarvestDate = DateOnly.FromDateTime(newPlantingDate.AddDays(120));
 
             // Act
             var result = await _repository.UpdateCropSeasonAsync(cropSeasonToUpdate);
 
             // Assert
             Assert.NotNull(result);
-            Assert.Equal(newPlantingDate.Date, result.PlantingDate.Date);
+            Assert.Equal(DateOnly.FromDateTime(newPlantingDate), result.PlantingDate);
         }
 
         #endregion
@@ -248,8 +248,8 @@ namespace Tests.IntegrationTests.Infrastructure.Repositories
             {
                 FieldId = field.Id,
                 CropType = CropType.Soybean,
-                PlantingDate = DateTime.UtcNow.AddDays(10),
-                ExpectedHarvestDate = DateTime.UtcNow.AddDays(130),
+                PlantingDate = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(10)),
+                ExpectedHarvestDate = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(130)),
                 Status = CropSeasonStatus.Planned,
                 CreatedBy = "test",
                 CreatedAt = DateTime.UtcNow
@@ -260,8 +260,8 @@ namespace Tests.IntegrationTests.Infrastructure.Repositories
             // Act - Tentando adicionar safra com datas sobrepostas
             var hasConflict = await _repository.HasDateConflictAsync(
                 field.Id,
-                DateTime.UtcNow.AddDays(50), // Overlap: dentro do período existente
-                DateTime.UtcNow.AddDays(170));
+                DateOnly.FromDateTime(DateTime.UtcNow.AddDays(50)), // Overlap: dentro do período existente
+                DateOnly.FromDateTime(DateTime.UtcNow.AddDays(170)));
 
             // Assert
             Assert.True(hasConflict);
@@ -276,8 +276,8 @@ namespace Tests.IntegrationTests.Infrastructure.Repositories
             // Act - Datas não sobrepostas
             var hasConflict = await _repository.HasDateConflictAsync(
                 field.Id,
-                DateTime.UtcNow.AddDays(200), // Após as safras existentes
-                DateTime.UtcNow.AddDays(320));
+                DateOnly.FromDateTime(DateTime.UtcNow.AddDays(200)), // Após as safras existentes
+                DateOnly.FromDateTime(DateTime.UtcNow.AddDays(320)));
 
             // Assert
             Assert.False(hasConflict);
@@ -306,8 +306,8 @@ namespace Tests.IntegrationTests.Infrastructure.Repositories
             {
                 FieldId = testField.Id,
                 CropType = CropType.Soybean,
-                PlantingDate = DateTime.UtcNow.AddDays(10),
-                ExpectedHarvestDate = DateTime.UtcNow.AddDays(130),
+                PlantingDate = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(10)),
+                ExpectedHarvestDate = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(130)),
                 Status = CropSeasonStatus.Planned,
                 CreatedBy = "test",
                 CreatedAt = DateTime.UtcNow
@@ -318,8 +318,8 @@ namespace Tests.IntegrationTests.Infrastructure.Repositories
             // Act - Verificando conflito excluindo a própria safra (para updates)
             var hasConflict = await _repository.HasDateConflictAsync(
                 testField.Id,
-                DateTime.UtcNow.AddDays(15), // Mesmas datas da safra existente
-                DateTime.UtcNow.AddDays(135),
+                DateOnly.FromDateTime(DateTime.UtcNow.AddDays(15)), // Mesmas datas da safra existente
+                DateOnly.FromDateTime(DateTime.UtcNow.AddDays(135)),
                 excludeCropSeasonId: added.Id); // Exclui ela mesma
 
             // Assert
@@ -335,9 +335,9 @@ namespace Tests.IntegrationTests.Infrastructure.Repositories
             {
                 FieldId = field.Id,
                 CropType = CropType.Soybean,
-                PlantingDate = DateTime.UtcNow.AddDays(-120),
-                ExpectedHarvestDate = DateTime.UtcNow.AddDays(-10),
-                HarvestDate = DateTime.UtcNow.AddDays(-5),
+                PlantingDate = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(-120)),
+                ExpectedHarvestDate = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(-10)),
+                HarvestDate = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(-5)),
                 Status = CropSeasonStatus.Finished, // Finished não ocupa o campo
                 CreatedBy = "test",
                 CreatedAt = DateTime.UtcNow
@@ -348,8 +348,8 @@ namespace Tests.IntegrationTests.Infrastructure.Repositories
             // Act - Tentando adicionar safra no mesmo período de uma finalizada
             var hasConflict = await _repository.HasDateConflictAsync(
                 field.Id,
-                DateTime.UtcNow.AddDays(-100),
-                DateTime.UtcNow.AddDays(-20));
+                DateOnly.FromDateTime(DateTime.UtcNow.AddDays(-100)),
+                DateOnly.FromDateTime(DateTime.UtcNow.AddDays(-20)));
 
             // Assert
             Assert.False(hasConflict); // Safras finalizadas não causam conflito
@@ -406,8 +406,8 @@ namespace Tests.IntegrationTests.Infrastructure.Repositories
             {
                 FieldId = field1.Id,
                 CropType = CropType.Soybean,
-                PlantingDate = DateTime.UtcNow.AddDays(10),
-                ExpectedHarvestDate = DateTime.UtcNow.AddDays(130),
+                PlantingDate = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(10)),
+                ExpectedHarvestDate = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(130)),
                 Status = CropSeasonStatus.Planned,
                 CreatedBy = "system",
                 CreatedAt = DateTime.UtcNow
@@ -417,8 +417,8 @@ namespace Tests.IntegrationTests.Infrastructure.Repositories
             {
                 FieldId = field2.Id,
                 CropType = CropType.Corn,
-                PlantingDate = DateTime.UtcNow.AddDays(15),
-                ExpectedHarvestDate = DateTime.UtcNow.AddDays(135),
+                PlantingDate = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(15)),
+                ExpectedHarvestDate = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(135)),
                 Status = CropSeasonStatus.Planned,
                 CreatedBy = "system",
                 CreatedAt = DateTime.UtcNow

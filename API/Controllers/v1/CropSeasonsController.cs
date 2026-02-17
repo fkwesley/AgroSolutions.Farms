@@ -16,6 +16,9 @@ namespace API.Controllers.v1
     [ApiVersion("1.0")]
     [Authorize(Roles = "Admin")]
     [Route("v{version:apiVersion}/crop-seasons")]
+    [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status500InternalServerError)]
     public class CropSeasonsController : ControllerBase
     {
         private readonly ICropSeasonService _cropSeasonService;
@@ -32,9 +35,6 @@ namespace API.Controllers.v1
         /// <returns>List of Crop Seasons</returns>
         [HttpGet(Name = "GetAllCropSeasons")]
         [ProducesResponseType(typeof(IEnumerable<CropSeasonResponse>), StatusCodes.Status200OK)]
-        [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status401Unauthorized)]
-        [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status403Forbidden)]
-        [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status500InternalServerError)]
         public async Task<IActionResult> GetAll()
         {
             var cropSeasons = await _cropSeasonService.GetAllCropSeasonsAsync();
@@ -51,7 +51,6 @@ namespace API.Controllers.v1
         [HttpGet("{cropSeasonId}", Name = "GetCropSeasonById")]
         [ProducesResponseType(typeof(CropSeasonResponse), StatusCodes.Status200OK)]
         [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status404NotFound)]
-        [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status500InternalServerError)]
         public async Task<IActionResult> GetById(int cropSeasonId)
         {
             var cropSeason = await _cropSeasonService.GetCropSeasonByIdAsync(cropSeasonId);
@@ -68,7 +67,6 @@ namespace API.Controllers.v1
         [HttpGet("field/{fieldId}", Name = "GetCropSeasonsByField")]
         [ProducesResponseType(typeof(IEnumerable<CropSeasonResponse>), StatusCodes.Status200OK)]
         [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status404NotFound)]
-        [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status500InternalServerError)]
         public async Task<IActionResult> GetByFieldId(int fieldId)
         {
             var cropSeasons = await _cropSeasonService.GetCropSeasonsByFieldIdAsync(fieldId);
@@ -80,21 +78,14 @@ namespace API.Controllers.v1
         /// <summary>
         /// Returns all crop seasons by status.
         /// </summary>
-        /// <param name="status">Status (Planned, Active, Finished)</param>
+        /// <param name="status">Status (Planned, Active, Finished, Canceled)</param>
         /// <returns>List of Crop Seasons</returns>
         [HttpGet("status/{status}", Name = "GetCropSeasonsByStatus")]
         [ProducesResponseType(typeof(IEnumerable<CropSeasonResponse>), StatusCodes.Status200OK)]
         [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status400BadRequest)]
-        [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status500InternalServerError)]
-        public async Task<IActionResult> GetByStatus(string status)
+        public async Task<IActionResult> GetByStatus(CropSeasonStatus status)
         {
-            if (!Enum.TryParse<CropSeasonStatus>(status, true, out var statusEnum))
-                return BadRequest(new ErrorResponse 
-                { 
-                    Message = $"Invalid status. Valid values are: {string.Join(", ", Enum.GetNames<CropSeasonStatus>())}" 
-                });
-
-            var cropSeasons = await _cropSeasonService.GetCropSeasonsByStatusAsync(statusEnum);
+            var cropSeasons = await _cropSeasonService.GetCropSeasonsByStatusAsync(status);
             var version = HttpContext.Request.RouteValues["version"]?.ToString() ?? "1.0";
             HateoasHelper.AddLinksToCropSeasons(cropSeasons, Url, version);
             return Ok(cropSeasons);
@@ -106,7 +97,6 @@ namespace API.Controllers.v1
         /// <returns>List of Overdue Crop Seasons</returns>
         [HttpGet("overdue", Name = "GetOverdueCropSeasons")]
         [ProducesResponseType(typeof(IEnumerable<CropSeasonResponse>), StatusCodes.Status200OK)]
-        [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status500InternalServerError)]
         public async Task<IActionResult> GetOverdue()
         {
             var cropSeasons = await _cropSeasonService.GetOverdueCropSeasonsAsync();
@@ -125,13 +115,10 @@ namespace API.Controllers.v1
         [HttpPost(Name = "AddCropSeason")]
         [ProducesResponseType(typeof(CropSeasonResponse), StatusCodes.Status201Created)]
         [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status400BadRequest)]
-        [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status401Unauthorized)]
-        [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status403Forbidden)]
-        [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status500InternalServerError)]
         public async Task<IActionResult> Add([FromBody] AddCropSeasonRequest request)
         {
-            // Extrai o UserId do token JWT e seta como ProducerId
-            request.CreatedBy = HttpContext.User?.FindFirst("user_id")?.Value ?? "anonymous"; // getting user_id from context (provided by token)
+            // Extrai o UserId do token JWT e seta como CreatedBy
+            request.CreatedBy = HttpContext.User?.FindFirst("user_id")?.Value ?? "anonymous";
 
             var addedCropSeason = await _cropSeasonService.AddCropSeasonAsync(request);
             var version = HttpContext.Request.RouteValues["version"]?.ToString() ?? "1.0";
@@ -141,22 +128,81 @@ namespace API.Controllers.v1
                 new { cropSeasonId = addedCropSeason.Id, version }, 
                 addedCropSeason);
         }
-        #endregion
 
-        #region PUT
         /// <summary>
-        /// Update a crop season (only for Planned status).
+        /// Start planting for a crop season (changes status from Planned to Active).
         /// </summary>
         /// <param name="cropSeasonId">Crop Season ID</param>
-        /// <param name="request">Crop Season data to update</param>
-        /// <returns>Object crop season updated</returns>
-        [HttpPut("{cropSeasonId}", Name = "UpdateCropSeason")]
+        /// <returns>Updated crop season</returns>
+        [HttpPost("{cropSeasonId}/start-planting", Name = "StartPlanting")]
         [ProducesResponseType(typeof(CropSeasonResponse), StatusCodes.Status200OK)]
         [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status400BadRequest)]
         [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status404NotFound)]
-        [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status401Unauthorized)]
-        [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status403Forbidden)]
-        [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status500InternalServerError)]
+        public async Task<IActionResult> StartPlanting(int cropSeasonId)
+        {
+            var updatedBy = HttpContext.User?.FindFirst("user_id")?.Value ?? "anonymous";
+            var updatedCropSeason = await _cropSeasonService.StartPlantingAsync(cropSeasonId, updatedBy);
+
+            var version = HttpContext.Request.RouteValues["version"]?.ToString() ?? "1.0";
+            HateoasHelper.AddLinksToCropSeason(updatedCropSeason, Url, version);
+
+            return Ok(updatedCropSeason);
+        }
+
+        /// <summary>
+        /// Finish harvest for a crop season (changes status to Finished).
+        /// </summary>
+        /// <param name="cropSeasonId">Crop Season ID</param>
+        /// <param name="request">Harvest date information</param>
+        /// <returns>Updated crop season</returns>
+        [HttpPost("{cropSeasonId}/finish-harvest", Name = "FinishHarvest")]
+        [ProducesResponseType(typeof(CropSeasonResponse), StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status404NotFound)]
+        public async Task<IActionResult> FinishHarvest(int cropSeasonId, [FromBody] FinishHarvestRequest request)
+        {
+            var updatedBy = HttpContext.User?.FindFirst("user_id")?.Value ?? "anonymous";
+            var updatedCropSeason = await _cropSeasonService.FinishHarvestAsync(cropSeasonId, request.HarvestDate, updatedBy);
+
+            var version = HttpContext.Request.RouteValues["version"]?.ToString() ?? "1.0";
+            HateoasHelper.AddLinksToCropSeason(updatedCropSeason, Url, version);
+
+            return Ok(updatedCropSeason);
+        }
+
+        /// <summary>
+        /// Cancel a crop season (sets status to Canceled).
+        /// </summary>
+        /// <param name="cropSeasonId">Crop Season ID</param>
+        /// <returns>Updated crop season</returns>
+        [HttpPost("{cropSeasonId}/cancel", Name = "CancelCropSeason")]
+        [ProducesResponseType(typeof(CropSeasonResponse), StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status404NotFound)]
+        public async Task<IActionResult> Cancel(int cropSeasonId)
+        {
+            var updatedBy = HttpContext.User?.FindFirst("user_id")?.Value ?? "anonymous";
+            var updatedCropSeason = await _cropSeasonService.CancelCropSeasonAsync(cropSeasonId, updatedBy);
+
+            var version = HttpContext.Request.RouteValues["version"]?.ToString() ?? "1.0";
+            HateoasHelper.AddLinksToCropSeason(updatedCropSeason, Url, version);
+
+            return Ok(updatedCropSeason);
+        }
+        #endregion
+
+        #region PATCH
+        /// <summary>
+        /// Partially update a crop season (only for Planned status).
+        /// You can update CropType and/or ExpectedHarvestDate.
+        /// </summary>
+        /// <param name="cropSeasonId">Crop Season ID</param>
+        /// <param name="request">Crop Season fields to update</param>
+        /// <returns>Object crop season updated</returns>
+        [HttpPatch("{cropSeasonId}", Name = "UpdateCropSeason")]
+        [ProducesResponseType(typeof(CropSeasonResponse), StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status404NotFound)]
         public async Task<IActionResult> Update(int cropSeasonId, [FromBody] UpdateCropSeasonRequest request)
         {
             request.Id = cropSeasonId;
@@ -180,9 +226,6 @@ namespace API.Controllers.v1
         [ProducesResponseType(StatusCodes.Status204NoContent)]
         [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status404NotFound)]
         [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status400BadRequest)]
-        [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status401Unauthorized)]
-        [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status403Forbidden)]
-        [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status500InternalServerError)]
         public async Task<IActionResult> Delete(int cropSeasonId)
         {
             await _cropSeasonService.DeleteCropSeasonAsync(cropSeasonId);

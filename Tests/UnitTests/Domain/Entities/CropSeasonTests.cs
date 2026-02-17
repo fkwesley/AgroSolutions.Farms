@@ -17,8 +17,8 @@ namespace Tests.UnitTests.Domain.Entities
             {
                 FieldId = 1,
                 CropType = CropType.Soybean,
-                PlantingDate = DateTime.UtcNow.AddDays(10),
-                ExpectedHarvestDate = DateTime.UtcNow.AddDays(130),
+                PlantingDate = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(10)),
+                ExpectedHarvestDate = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(130)),
                 CreatedBy = "user123",
                 CreatedAt = DateTime.UtcNow
             };
@@ -39,8 +39,8 @@ namespace Tests.UnitTests.Domain.Entities
                 {
                     FieldId = 1,
                     CropType = CropType.Soybean,
-                    PlantingDate = DateTime.UtcNow.AddYears(2),
-                    ExpectedHarvestDate = DateTime.UtcNow.AddYears(2).AddDays(120),
+                    PlantingDate = DateOnly.FromDateTime(DateTime.UtcNow.AddYears(2)),
+                    ExpectedHarvestDate = DateOnly.FromDateTime(DateTime.UtcNow.AddYears(2).AddDays(120)),
                     CreatedBy = "user123",
                     CreatedAt = DateTime.UtcNow
                 };
@@ -59,14 +59,132 @@ namespace Tests.UnitTests.Domain.Entities
                 {
                     FieldId = 1,
                     CropType = CropType.Soybean,
-                    PlantingDate = DateTime.UtcNow.AddDays(100),
-                    ExpectedHarvestDate = DateTime.UtcNow.AddDays(50), // Before planting
+                    PlantingDate = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(100)),
+                    ExpectedHarvestDate = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(50)), // Before planting
                     CreatedBy = "user123",
                     CreatedAt = DateTime.UtcNow
                 };
             });
 
             Assert.Contains("Expected harvest date must be after planting date", exception.Message);
+        }
+
+        #endregion
+
+        #region HarvestDate Setter Tests
+
+        [Fact]
+        public void HarvestDate_WithFutureDate_ShouldThrowBusinessException()
+        {
+            // Arrange
+            var cropSeason = new CropSeason
+            {
+                FieldId = 1,
+                CropType = CropType.Soybean,
+                PlantingDate = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(-100)),
+                ExpectedHarvestDate = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(20)),
+                CreatedBy = "user123",
+                CreatedAt = DateTime.UtcNow.AddDays(-100)
+            };
+
+            // Act & Assert
+            var exception = Assert.Throws<BusinessException>(() =>
+            {
+                cropSeason.HarvestDate = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(10)); // Future date
+            });
+
+            Assert.Contains("Harvest date cannot be in the future", exception.Message);
+        }
+
+        [Fact]
+        public void HarvestDate_WithDateBeforePlanting_ShouldThrowBusinessException()
+        {
+            // Arrange
+            var cropSeason = new CropSeason
+            {
+                FieldId = 1,
+                CropType = CropType.Soybean,
+                PlantingDate = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(-100)),
+                ExpectedHarvestDate = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(20)),
+                CreatedBy = "user123",
+                CreatedAt = DateTime.UtcNow.AddDays(-100)
+            };
+
+            // Act & Assert
+            var exception = Assert.Throws<BusinessException>(() =>
+            {
+                cropSeason.HarvestDate = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(-110)); // Before planting
+            });
+
+            Assert.Contains("Harvest date cannot be before planting date", exception.Message);
+        }
+
+        [Fact]
+        public void HarvestDate_WithValidPastDate_ShouldSetAndChangeStatusToFinished()
+        {
+            // Arrange
+            var cropSeason = new CropSeason
+            {
+                FieldId = 1,
+                CropType = CropType.Soybean,
+                PlantingDate = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(-100)),
+                ExpectedHarvestDate = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(20)),
+                CreatedBy = "user123",
+                CreatedAt = DateTime.UtcNow.AddDays(-100)
+            };
+
+            var harvestDate = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(-10));
+
+            // Act
+            cropSeason.HarvestDate = harvestDate;
+
+            // Assert
+            Assert.Equal(harvestDate, cropSeason.HarvestDate);
+            Assert.Equal(CropSeasonStatus.Finished, cropSeason.Status);
+        }
+
+        [Fact]
+        public void HarvestDate_WithTodayDate_ShouldSetAndChangeStatusToFinished()
+        {
+            // Arrange
+            var cropSeason = new CropSeason
+            {
+                FieldId = 1,
+                CropType = CropType.Soybean,
+                PlantingDate = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(-100)),
+                ExpectedHarvestDate = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(20)),
+                CreatedBy = "user123",
+                CreatedAt = DateTime.UtcNow.AddDays(-100)
+            };
+
+            var today = DateOnly.FromDateTime(DateTime.UtcNow);
+
+            // Act
+            cropSeason.HarvestDate = today;
+
+            // Assert
+            Assert.Equal(today, cropSeason.HarvestDate);
+            Assert.Equal(CropSeasonStatus.Finished, cropSeason.Status);
+        }
+
+        [Fact]
+        public void CropSeason_WithHarvestDateInConstructor_ShouldSetStatusToFinished()
+        {
+            // Arrange & Act
+            var cropSeason = new CropSeason
+            {
+                FieldId = 1,
+                CropType = CropType.Soybean,
+                PlantingDate = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(-120)),
+                ExpectedHarvestDate = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(10)),
+                HarvestDate = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(-10)), // Past date
+                CreatedBy = "user123",
+                CreatedAt = DateTime.UtcNow.AddDays(-120)
+            };
+
+            // Assert
+            Assert.Equal(CropSeasonStatus.Finished, cropSeason.Status);
+            Assert.NotNull(cropSeason.HarvestDate);
         }
 
         #endregion
@@ -78,7 +196,7 @@ namespace Tests.UnitTests.Domain.Entities
         {
             // Arrange
             var cropSeason = CreateValidCropSeason();
-            cropSeason.PlantingDate = DateTime.UtcNow.AddDays(-1); // Past date
+            cropSeason.PlantingDate = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(1)); // Amanhã = Planned
 
             // Act
             cropSeason.StartPlanting();
@@ -90,12 +208,18 @@ namespace Tests.UnitTests.Domain.Entities
         [Fact]
         public void StartPlanting_WithActiveStatus_ShouldThrowBusinessException()
         {
-            // Arrange
-            var cropSeason = CreateValidCropSeason();
-            cropSeason.PlantingDate = DateTime.UtcNow.AddDays(-1);
-            cropSeason.StartPlanting(); // Already active
+            // Arrange - cria safra com plantio no passado = Active automaticamente
+            var cropSeason = new CropSeason
+            {
+                FieldId = 1,
+                CropType = CropType.Soybean,
+                PlantingDate = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(-10)), // Passado = Active
+                ExpectedHarvestDate = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(110)),
+                CreatedBy = "user123",
+                CreatedAt = DateTime.UtcNow.AddDays(-10)
+            };
 
-            // Act & Assert
+            // Act & Assert - já está Active, não pode chamar StartPlanting
             var exception = Assert.Throws<BusinessException>(() => cropSeason.StartPlanting());
             Assert.Contains("Only planned crop seasons can be started", exception.Message);
         }
@@ -105,11 +229,11 @@ namespace Tests.UnitTests.Domain.Entities
         {
             // Arrange
             var cropSeason = CreateValidCropSeason();
-            cropSeason.PlantingDate = DateTime.UtcNow.AddDays(10); // Future date
+            cropSeason.PlantingDate = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(10)); // 10 dias no futuro
 
             // Act & Assert
             var exception = Assert.Throws<BusinessException>(() => cropSeason.StartPlanting());
-            Assert.Contains("Cannot start planting before the planned planting date", exception.Message);
+            Assert.Contains("Cannot start planting more than 1 day before", exception.Message);
         }
 
         #endregion
@@ -119,12 +243,18 @@ namespace Tests.UnitTests.Domain.Entities
         [Fact]
         public void FinishHarvest_WithActiveStatus_ShouldFinish()
         {
-            // Arrange
-            var cropSeason = CreateValidCropSeason();
-            cropSeason.PlantingDate = DateTime.UtcNow.AddDays(-120);
-            cropSeason.StartPlanting();
+            // Arrange - cria safra já ativa
+            var cropSeason = new CropSeason
+            {
+                FieldId = 1,
+                CropType = CropType.Soybean,
+                PlantingDate = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(-120)), // Passado = Active
+                ExpectedHarvestDate = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(10)),
+                CreatedBy = "user123",
+                CreatedAt = DateTime.UtcNow.AddDays(-120)
+            };
 
-            var harvestDate = DateTime.UtcNow;
+            var harvestDate = DateOnly.FromDateTime(DateTime.UtcNow);
 
             // Act
             cropSeason.FinishHarvest(harvestDate);
@@ -137,40 +267,52 @@ namespace Tests.UnitTests.Domain.Entities
         [Fact]
         public void FinishHarvest_WithPlannedStatus_ShouldThrowBusinessException()
         {
-            // Arrange
+            // Arrange - safra planejada (PlantingDate no futuro)
             var cropSeason = CreateValidCropSeason();
 
-            // Act & Assert
+            // Act & Assert - tentar colher antes do plantio
             var exception = Assert.Throws<BusinessException>(() =>
-                cropSeason.FinishHarvest(DateTime.UtcNow));
-            Assert.Contains("Only active crop seasons can be harvested", exception.Message);
+                cropSeason.FinishHarvest(DateOnly.FromDateTime(DateTime.UtcNow)));
+            Assert.Contains("Harvest date cannot be before planting date", exception.Message);
         }
 
         [Fact]
         public void FinishHarvest_WithHarvestDateBeforePlanting_ShouldThrowBusinessException()
         {
-            // Arrange
-            var cropSeason = CreateValidCropSeason();
-            cropSeason.PlantingDate = DateTime.UtcNow.AddDays(-120);
-            cropSeason.StartPlanting();
+            // Arrange - cria safra já ativa (plantio no passado)
+            var cropSeason = new CropSeason
+            {
+                FieldId = 1,
+                CropType = CropType.Soybean,
+                PlantingDate = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(-120)), // Passado = Active
+                ExpectedHarvestDate = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(10)),
+                CreatedBy = "user123",
+                CreatedAt = DateTime.UtcNow.AddDays(-120)
+            };
 
             // Act & Assert
             var exception = Assert.Throws<BusinessException>(() =>
-                cropSeason.FinishHarvest(DateTime.UtcNow.AddDays(-130)));
+                cropSeason.FinishHarvest(DateOnly.FromDateTime(DateTime.UtcNow.AddDays(-130))));
             Assert.Contains("Harvest date cannot be before planting date", exception.Message);
         }
 
         [Fact]
         public void FinishHarvest_WithFutureDate_ShouldThrowBusinessException()
         {
-            // Arrange
-            var cropSeason = CreateValidCropSeason();
-            cropSeason.PlantingDate = DateTime.UtcNow.AddDays(-120);
-            cropSeason.StartPlanting();
+            // Arrange - cria safra já ativa (plantio no passado)
+            var cropSeason = new CropSeason
+            {
+                FieldId = 1,
+                CropType = CropType.Soybean,
+                PlantingDate = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(-120)),
+                ExpectedHarvestDate = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(10)),
+                CreatedBy = "user123",
+                CreatedAt = DateTime.UtcNow.AddDays(-120)
+            };
 
             // Act & Assert
             var exception = Assert.Throws<BusinessException>(() =>
-                cropSeason.FinishHarvest(DateTime.UtcNow.AddDays(10)));
+                cropSeason.FinishHarvest(DateOnly.FromDateTime(DateTime.UtcNow.AddDays(10))));
             Assert.Contains("Harvest date cannot be in the future", exception.Message);
         }
 
@@ -181,27 +323,39 @@ namespace Tests.UnitTests.Domain.Entities
         [Fact]
         public void Cancel_WithActiveStatus_ShouldCancel()
         {
-            // Arrange
-            var cropSeason = CreateValidCropSeason();
-            cropSeason.PlantingDate = DateTime.UtcNow.AddDays(-1);
-            cropSeason.StartPlanting();
+            // Arrange - cria safra já ativa (plantio no passado)
+            var cropSeason = new CropSeason
+            {
+                FieldId = 1,
+                CropType = CropType.Soybean,
+                PlantingDate = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(-10)), // Passado = Active
+                ExpectedHarvestDate = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(110)),
+                CreatedBy = "user123",
+                CreatedAt = DateTime.UtcNow.AddDays(-10)
+            };
 
             // Act
             cropSeason.Cancel();
 
             // Assert
-            Assert.Equal(CropSeasonStatus.Planned, cropSeason.Status);
+            Assert.Equal(CropSeasonStatus.Canceled, cropSeason.Status);
             Assert.Null(cropSeason.HarvestDate);
         }
 
         [Fact]
         public void Cancel_WithFinishedStatus_ShouldThrowBusinessException()
         {
-            // Arrange
-            var cropSeason = CreateValidCropSeason();
-            cropSeason.PlantingDate = DateTime.UtcNow.AddDays(-120);
-            cropSeason.StartPlanting();
-            cropSeason.FinishHarvest(DateTime.UtcNow);
+            // Arrange - cria safra finalizada
+            var cropSeason = new CropSeason
+            {
+                FieldId = 1,
+                CropType = CropType.Soybean,
+                PlantingDate = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(-120)),
+                ExpectedHarvestDate = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(10)),
+                CreatedBy = "user123",
+                CreatedAt = DateTime.UtcNow.AddDays(-120)
+            };
+            cropSeason.FinishHarvest(DateOnly.FromDateTime(DateTime.UtcNow));
 
             // Act & Assert
             var exception = Assert.Throws<BusinessException>(() => cropSeason.Cancel());
@@ -215,12 +369,17 @@ namespace Tests.UnitTests.Domain.Entities
         [Fact]
         public void GetCycleDurationInDays_WithHarvestDate_ShouldReturnActualDuration()
         {
-            // Arrange
-            var cropSeason = CreateValidCropSeason();
-            cropSeason.PlantingDate = DateTime.UtcNow.AddDays(-120);
-            cropSeason.ExpectedHarvestDate = DateTime.UtcNow.AddDays(10);
-            cropSeason.StartPlanting();
-            cropSeason.FinishHarvest(DateTime.UtcNow);
+            // Arrange - cria safra finalizada
+            var cropSeason = new CropSeason
+            {
+                FieldId = 1,
+                CropType = CropType.Soybean,
+                PlantingDate = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(-120)),
+                ExpectedHarvestDate = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(10)),
+                CreatedBy = "user123",
+                CreatedAt = DateTime.UtcNow.AddDays(-120)
+            };
+            cropSeason.FinishHarvest(DateOnly.FromDateTime(DateTime.UtcNow));
 
             // Act
             var duration = cropSeason.GetCycleDurationInDays();
@@ -239,8 +398,8 @@ namespace Tests.UnitTests.Domain.Entities
             {
                 FieldId = 1,
                 CropType = CropType.Soybean,
-                PlantingDate = plantingDate,
-                ExpectedHarvestDate = expectedHarvestDate,
+                PlantingDate = DateOnly.FromDateTime(plantingDate),
+                ExpectedHarvestDate = DateOnly.FromDateTime(expectedHarvestDate),
                 CreatedBy = "user123",
                 CreatedAt = DateTime.UtcNow
             };
@@ -259,11 +418,16 @@ namespace Tests.UnitTests.Domain.Entities
         [Fact]
         public void IsOverdue_WithExpectedHarvestDatePassed_ShouldReturnTrue()
         {
-            // Arrange
-            var cropSeason = CreateValidCropSeason();
-            cropSeason.PlantingDate = DateTime.UtcNow.AddDays(-150);
-            cropSeason.ExpectedHarvestDate = DateTime.UtcNow.AddDays(-10);
-            cropSeason.StartPlanting();
+            // Arrange - cria safra ativa atrasada
+            var cropSeason = new CropSeason
+            {
+                FieldId = 1,
+                CropType = CropType.Soybean,
+                PlantingDate = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(-150)), // Passado = Active
+                ExpectedHarvestDate = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(-10)), // Atrasada
+                CreatedBy = "user123",
+                CreatedAt = DateTime.UtcNow.AddDays(-150)
+            };
 
             // Act
             var isOverdue = cropSeason.IsOverdue();
@@ -277,8 +441,8 @@ namespace Tests.UnitTests.Domain.Entities
         {
             // Arrange
             var cropSeason = CreateValidCropSeason();
-            cropSeason.PlantingDate = DateTime.UtcNow.AddDays(10);
-            cropSeason.ExpectedHarvestDate = DateTime.UtcNow.AddDays(130);
+            cropSeason.PlantingDate = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(10));
+            cropSeason.ExpectedHarvestDate = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(130));
 
             // Act
             var isOverdue = cropSeason.IsOverdue();
@@ -290,12 +454,17 @@ namespace Tests.UnitTests.Domain.Entities
         [Fact]
         public void IsOverdue_WithFinishedStatus_ShouldReturnFalse()
         {
-            // Arrange
-            var cropSeason = CreateValidCropSeason();
-            cropSeason.PlantingDate = DateTime.UtcNow.AddDays(-120);
-            cropSeason.ExpectedHarvestDate = DateTime.UtcNow.AddDays(-10);
-            cropSeason.StartPlanting();
-            cropSeason.FinishHarvest(DateTime.UtcNow);
+            // Arrange - cria safra finalizada
+            var cropSeason = new CropSeason
+            {
+                FieldId = 1,
+                CropType = CropType.Soybean,
+                PlantingDate = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(-120)),
+                ExpectedHarvestDate = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(-10)),
+                CreatedBy = "user123",
+                CreatedAt = DateTime.UtcNow.AddDays(-120)
+            };
+            cropSeason.FinishHarvest(DateOnly.FromDateTime(DateTime.UtcNow));
 
             // Act
             var isOverdue = cropSeason.IsOverdue();
@@ -314,8 +483,8 @@ namespace Tests.UnitTests.Domain.Entities
             {
                 FieldId = 1,
                 CropType = CropType.Soybean,
-                PlantingDate = DateTime.UtcNow.AddDays(10),
-                ExpectedHarvestDate = DateTime.UtcNow.AddDays(130),
+                PlantingDate = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(10)),
+                ExpectedHarvestDate = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(130)),
                 Status = CropSeasonStatus.Planned,
                 CreatedBy = "system",
                 CreatedAt = DateTime.UtcNow

@@ -7,10 +7,10 @@ namespace Application.DTO.CropSeason
     {
         public required int Id { get; set; }
         public required int FieldId { get; set; }
-        public required string CropType { get; set; }
-        public required DateTime PlantingDate { get; set; }
-        public required DateTime ExpectedHarvestDate { get; set; }
-        public DateTime? HarvestDate { get; set; }
+        public required CropType CropType { get; set; }
+        public required DateOnly PlantingDate { get; set; }
+        public required DateOnly ExpectedHarvestDate { get; set; }
+        public DateOnly? HarvestDate { get; set; }
         public required string Status { get; set; }
         public int CycleDurationDays { get; set; }
         public bool IsOverdue { get; set; }

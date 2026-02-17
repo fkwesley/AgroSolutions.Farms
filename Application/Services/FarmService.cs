@@ -37,7 +37,7 @@ namespace Application.Services
             var farm = await _farmRepository.GetFarmByIdAsync(farmId);
 
             if (farm == null)
-                throw new ValidationException($"Farm with ID {farmId} not found.");
+                throw new KeyNotFoundException($"Farm with ID {farmId} not found.");
 
             return farm.ToResponse();
         }
@@ -62,7 +62,7 @@ namespace Application.Services
             var existingFarm = await _farmRepository.GetFarmByIdAsync(request.FarmId);
 
             if (existingFarm == null)
-                throw new ValidationException($"Farm with ID {request.FarmId} not found.");
+                throw new KeyNotFoundException($"Farm with ID {request.FarmId} not found.");
 
             // Valida se a nova área total é suficiente para os campos existentes
             var usedArea = existingFarm.GetTotalFieldsArea();
@@ -88,7 +88,7 @@ namespace Application.Services
             var farm = await _farmRepository.GetFarmByIdAsync(farmId);
 
             if (farm == null)
-                throw new ValidationException($"Farm with ID {farmId} not found.");
+                throw new KeyNotFoundException($"Farm with ID {farmId} not found.");
 
             // Validação: não permitir deletar fazenda com campos ativos
             if (farm.Fields.Any(f => f.IsActive))

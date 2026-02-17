@@ -7,19 +7,22 @@ namespace Application.DTO.CropSeason
     public class AddCropSeasonRequest
     {
         [Required]
-        [MaxLength(20)]
+        [Range(1, int.MaxValue, ErrorMessage = "FieldId must be a positive number")]
         public required int FieldId { get; set; }
 
         [Required]
+        [EnumDataType(typeof(CropType), ErrorMessage = "Invalid crop type")]
         public required CropType CropType { get; set; }
 
         [Required]
-        public required DateTime PlantingDate { get; set; }
+        public required DateOnly PlantingDate { get; set; }
+
+        public DateOnly? HarvestDate { get; set; }
 
         [Required]
-        public required DateTime ExpectedHarvestDate { get; set; }
-        
+        public required DateOnly ExpectedHarvestDate { get; set; }
+
         [JsonIgnore]
-        public required string CreatedBy { get; set; }
+        public string CreatedBy { get; set; } = string.Empty;
     }
 }

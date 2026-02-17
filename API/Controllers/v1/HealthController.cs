@@ -13,6 +13,7 @@ namespace API.Controllers.v1
     [ApiController]
     [Route("v{version:apiVersion}/health")]
     [ApiVersion("1.0")]
+    [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status500InternalServerError)]
     public class HealthController : ControllerBase
     {
         private readonly IHealthCheckService _healthCheckService;
@@ -31,7 +32,6 @@ namespace API.Controllers.v1
         /// <response code="503">API is unhealthy (critical components failed)</response>
         [ProducesResponseType(typeof(HealthResponse), StatusCodes.Status200OK)]
         [ProducesResponseType(typeof(HealthResponse), StatusCodes.Status503ServiceUnavailable)]
-        [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status500InternalServerError)]
         [HttpGet(Name = "GetHealth_V1")]
         public async Task<IActionResult> GetHealth()
         {

@@ -13,7 +13,6 @@ namespace API.Controllers.v1
     /// </summary>
     [ApiController]
     [ApiVersion("1.0")]
-    [Authorize(Roles = "Admin")]
     [Route("v{version:apiVersion}/fields")]
     [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status403Forbidden)]

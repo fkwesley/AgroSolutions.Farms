@@ -1,17 +1,11 @@
-using Application.EventHandlers;
+
 using Application.Interfaces;
 using Application.Services;
 using Application.Settings;
-using Domain.Events;
 using Domain.Repositories;
-using Elastic.Apm.NetCoreAll;
-using FCG.Application.Services;
 using Infrastructure.Context;
-using Infrastructure.Factories;
-using Infrastructure.Http.Clients;
 using Infrastructure.Interfaces;
 using Infrastructure.Repositories;
-using Infrastructure.Services;
 using Infrastructure.Services.HealthCheck;
 using Infrastructure.Services.Logging;
 using Microsoft.EntityFrameworkCore;
@@ -33,8 +27,11 @@ public static class DependencyInjectionConfiguration
 {
     public static WebApplicationBuilder AddDependencyInjection(this WebApplicationBuilder builder)
     {
-        var connectionString = builder.Configuration.GetConnectionString("FCGOrdersDbConnection")
-            ?? throw new ArgumentNullException("Connection string 'FCGOrdersDbConnection' not found.");
+        var connectionString = builder.Configuration.GetConnectionString("FarmsDbConnection")
+            ?? throw new ArgumentNullException("Connection string 'FarmsDbConnection' not found.");
+
+        var jwtKey = builder.Configuration.GetValue<string>("Jwt:Key");
+        var jwtIssuer = builder.Configuration.GetValue<string>("Jwt:Issuer");
 
         // Settings
         builder.Services.Configure<LoggerSettings>(builder.Configuration.GetSection("LoggerSettings"));
@@ -42,9 +39,10 @@ public static class DependencyInjectionConfiguration
         builder.Services.Configure<ElasticLoggerSettings>(builder.Configuration.GetSection("ElasticLogs"));
 
         // Domain Services
-        builder.Services.AddScoped<IOrderService, OrderService>();
-        builder.Services.AddScoped<IGameService, GameService>();
-        
+        builder.Services.AddScoped<IFarmService, FarmService>();
+        builder.Services.AddScoped<IFieldService, FieldService>();
+        builder.Services.AddScoped<ICropSeasonService, CropSeasonService>();
+
         // Health Check Services
         // #SOLID - Open/Closed Principle (OCP)
         // Para adicionar novo health check:
@@ -53,35 +51,19 @@ public static class DependencyInjectionConfiguration
         // 3. HealthCheckService descobre automaticamente via IEnumerable<IHealthCheck>
         builder.Services.AddScoped<IHealthCheckService, HealthCheckService>();
         builder.Services.AddScoped<IHealthCheck, DatabaseHealthCheck>();
-        builder.Services.AddScoped<IHealthCheck, GamesApiHealthCheck>();
-        builder.Services.AddScoped<IHealthCheck, RabbitMQHealthCheck>();
         builder.Services.AddScoped<IHealthCheck, ElasticsearchHealthCheck>();
         builder.Services.AddScoped<IHealthCheck, SystemHealthCheck>();
-
-        // Domain Event Dispatcher & Handlers
-        builder.Services.AddScoped<IDomainEventDispatcher, DomainEventDispatcher>();
-        builder.Services.AddScoped<IDomainEventHandler<OrderCreatedEvent>, OrderCreatedEventHandler>();
-        builder.Services.AddScoped<IDomainEventHandler<PaymentMethodSetEvent>, PaymentMethodSetEventHandler>();
-        builder.Services.AddScoped<IDomainEventHandler<OrderStatusChangedEvent>, OrderStatusChangedEventHandler>();
 
         // Logger Services
         ConfigureLoggerService(builder);
 
-        // Message Publishers
-        builder.Services.AddSingleton<IMessagePublisher, RabbitMQPublisher>();
-        builder.Services.AddSingleton<IMessagePublisher, ServiceBusPublisher>();
-        builder.Services.AddSingleton<RabbitMQPublisher>();
-        builder.Services.AddSingleton<ServiceBusPublisher>();
-        builder.Services.AddSingleton<IMessagePublisherFactory, MessagePublisherFactory>();
-
         // Repositories
-        builder.Services.AddScoped<IOrderRepository, OrderRepository>();
-
-        // HTTP Clients
-        builder.Services.AddScoped<IGamesApiClient, GamesApiClient>();
+        builder.Services.AddScoped<IFarmRepository, FarmRepository>();
+        builder.Services.AddScoped<IFieldRepository, FieldRepository>();
+        builder.Services.AddScoped<ICropSeasonRepository, CropSeasonRepository>();
 
         // Database Context
-        builder.Services.AddDbContext<OrdersDbContext>(options =>
+        builder.Services.AddDbContext<FarmsDbContext>(options =>
         {
             options.UseSqlServer(connectionString, sqlOptions =>
             {
@@ -96,7 +78,17 @@ public static class DependencyInjectionConfiguration
         // Other Services
         builder.Services.AddHttpClient();
         builder.Services.AddHttpContextAccessor();
-        builder.Services.AddControllers();
+        builder.Services.AddControllers()
+            .AddJsonOptions(options =>
+            {
+                // Serializa todos os enums como string ao invés de número
+                // Exemplo: "CropType": "Soja" ao invés de "CropType": 1
+                options.JsonSerializerOptions.Converters.Add(
+                    new System.Text.Json.Serialization.JsonStringEnumConverter());
+                
+                // Permite valores case-insensitive (aceita "soja", "SOJA", "Soja")
+                options.JsonSerializerOptions.PropertyNameCaseInsensitive = true;
+            });
         builder.Services.AddEndpointsApiExplorer();
 
         // Elastic APM

@@ -21,7 +21,7 @@ namespace API.Configurations
             var elasticApiKey = configuration["ElasticLogs:ApiKey"];
             var elasticIndexPrefix = configuration["ElasticLogs:IndexPrefix"] ?? "app";
 
-            var connectionString = configuration.GetConnectionString("FCGOrdersDbConnection");
+            var connectionString = configuration.GetConnectionString("FarmsDbConnection");
             var newRelicEndpoint = configuration["NewRelic:Endpoint"];
             var newRelicLicenseKey = configuration["NewRelic:LicenseKey"];
 
@@ -33,7 +33,7 @@ namespace API.Configurations
                 .Enrich.WithMachineName()
                 .Enrich.WithThreadId()
                 .WriteTo.Console(
-                    outputTemplate: "[{Timestamp:HH:mm:ss} {Level:u3}] {Message:lj} {Properties:j}{NewLine}{Exception}");
+                    outputTemplate: "[{Timestamp:HH:mm:ss} {Level:u3}] {Message:lj}{NewLine}{Exception}");
 
             // Configura sinks baseado no Provider (Database, Elastic, NewRelic, ou combinações)
             switch (loggerProvider.ToLower())

@@ -39,6 +39,7 @@ public static class SwaggerConfiguration
             c.IncludeXmlComments(Path.Combine(AppContext.BaseDirectory, xmlFilename));
 
             c.OperationFilter<RemoveIgnoredPropertiesFilter>();
+            c.DocumentFilter<SwaggerOrderDocumentFilter>();
         });
 
         builder.Services.ConfigureOptions<ConfigureSwaggerOptions>();
@@ -60,7 +61,7 @@ public static class SwaggerConfiguration
             {
                 options.SwaggerEndpoint(
                     $"/swagger/{description.GroupName}/swagger.json",
-                    $"FCG.Orders.API {description.GroupName.ToUpperInvariant()}"
+                    $"AgroSolutions.Farms.API {description.GroupName.ToUpperInvariant()}"
                 );
             }
 

@@ -1,4 +1,4 @@
-﻿# 🎮 AgroSolutions.Farms - Hackaton FIAP
+﻿# 🌾 AgroSolutions.Farms - Hackaton FIAP
 
 > API RESTful para gestão de fazendas, talhões e temporadas de plantio.
 
@@ -32,13 +32,46 @@ API RESTful escalável e manutenível, implementando as melhores práticas de ar
 - ✅ **REST Level 3** (HATEOAS completo)
 - ✅ **SOLID Principles** aplicados rigorosamente
 - ✅ **Domain-Driven Design** (DDD)
-- ✅ **Event-Driven Architecture**
 - ✅ **Health Checks** dinâmicos com auto-discovery
 - ✅ **Observabilidade completa** (Logs estruturados, Correlation IDs)
 - ✅ **Testes em 4 camadas** (Unit, Integration, Architecture, Load)
 
 ---
 
+### 📌 Requisitos Hackaton FIAP
+  - **Arquitetura baseada em microserviços**
+    - Microserviço para gestão de úsuários e autenticação JWT
+    - Microserviço para gestão de fazendas, talhões e safras
+    - Microserviço para injestão dos dados dos sensores 
+    - Funções Serverless para coleta e processamento de dados em tempo real
+  - **Orquestração com Kubernetes**
+    - Imagens Docker otimizadas para .NET 8 (Alpine) 
+    - Armazenamento das imagens no Azure Container Registry (ACR)
+    - Microserviços hospedados em Azure Kubernetes Services (AKS)   
+    - Manifestos Kubernetes para deploy, service, hpa, configMap e secrets
+  - **Observabilidade**
+    - Elastic APM para monitoramento de performance e rastreamento distribuído
+    - Elasticsearch para armazenamento e análise de logs estruturados
+    - Kibana para dashboards
+  - **Mensageria**
+    - ServiceBus para comunicação assíncrona entre microserviços
+    - Azure Functions (Queue trigger) para processamento de mensagens em tempo real
+    - Azure Functions (Timer trigger) para coleta de dados dos sensores a cada hora
+  - **CI/CD Automatizado**
+    - Github Actions para build, testes, build de imagem Docker e deploy no AKS
+    - Stages de DEV, STAGING e PROD com aprovações manuais para deploy em produção
+  - **Adoção das melhores práticas de arquitetura e dev**
+    - Clean Architecture (Onion Architecture)
+    - API RESTful Level 3 (HATEOAS completo)
+    - SOLID Principles aplicados rigorosamente
+    - Patterns como Repository, Unit of Work, Factory, Strategy
+    - Domain-Driven Design (DDD)
+    - Health Checks dinâmicos
+    - Observabilidade completa (Logs estruturados, Correlation IDs)
+    - Testes em 4 camadas (Unit, Integration, Architecture, Load)
+
+---
+  
 ## 🏗️ Arquitetura
 
 ### Clean Architecture (Onion)
@@ -47,7 +80,7 @@ API RESTful escalável e manutenível, implementando as melhores práticas de ar
 ┌─────────────────────────────────────────────┐
 │              API (Presentation)             │  ← Controllers, Middlewares
 ├─────────────────────────────────────────────┤
-│           Application (Use Cases)           │  ← Services, DTOs, Event Handlers
+│           Application (Use Cases)           │  ← Services, DTOs, Mappings
 ├─────────────────────────────────────────────┤
 │              Domain (Core)                  │  ← Entities, Events, Business Rules
 ├─────────────────────────────────────────────┤
@@ -79,8 +112,8 @@ Nível 0: POX
 
 | Requisito | Descrição | Status | Padrão |
 |-----------|-----------|--------|--------|
-| **URIs substantivos** | Recursos com substantivos no plural | ✅ | `/orders`, `/games` |
-| **Hierarquia de URIs** | Relacionamentos claros | ✅ | `/orders/{id}/game` |
+| **URIs substantivos** | Recursos com substantivos no plural | ✅ | `/farms`, `/fields`, `/crop-seasons` |
+| **Hierarquia de URIs** | Relacionamentos claros | ✅ | `/fields/farm/{farmId}` |
 | **HTTP Verbs** | GET, POST, PUT, DELETE corretos | ✅ | Semântica HTTP |
 | **Idempotência** | GET, PUT, DELETE idempotentes | ✅ | RFC 7231 |
 | **Status Codes** | 2xx, 3xx, 4xx, 5xx apropriados | ✅ | HTTP Standards |
@@ -113,79 +146,84 @@ Nível 0: POX
 ## 📁 Estrutura do Projeto
 
 ```
-AgroSolutions.Users/
+AgroSolutions.Farms/
 │
 ├── 📂 API/                          # Presentation Layer
-│   ├── Controllers/v1, v2/             # Endpoints versionados
-│   ├── Middlewares/                    # Error, Logging, Security
-│   ├── Configurations/                 # DI, Swagger, CORS
+│   ├── Controllers/v1/                 # Endpoints versionados
+│   ├── Middlewares/                    # Error, Logging, Security, Cache
+│   ├── Configurations/                 # DI, Swagger, CORS, Auth, Versioning
+│   ├── Helpers/                        # HATEOAS Helper
+│   ├── Models/                         # ErrorResponse
 │   ├── Program.cs                      # Entry point, Startup
 │   ├── appsettings.json                # Configurações de produção
-│   ├── appsettings.Development.json    # Configurações de desenvolvimento
+│   └── appsettings.Development.json    # Configurações de desenvolvimento
 │
 ├── 📂 Application/                  # Use Cases
-│   ├── Services/                       # Lógica de negócio
-│   ├── Interfaces/                     # Contratos (IOrderService, IHealthCheck)
-│   ├── EventHandlers/                  # Handlers de Domain Events
+│   ├── Services/                       # Lógica de negócio (FarmService, FieldService, CropSeasonService)
+│   ├── Interfaces/                     # Contratos (IFarmService, IFieldService, ICropSeasonService)
+│   ├── Mappings/                       # Extensions de mapeamento Entity ↔ DTO
 │   ├── DTO/                            # Request/Response DTOs
-│   └── Settings/                       # Configurações tipadas
+│   ├── Helpers/                        # DateTimeHelper
+│   └── Settings/                       # Configurações tipadas (Logger, Elastic)
 │
 ├── 📂 Domain/                       # Core Business
-│   ├── Entities/                       # Order, Game (Aggregates)
-│   ├── ValueObjects/                   # PaymentMethodDetails
-│   ├── Events/                         # OrderCreatedEvent
-│   ├── Enums/                          # OrderStatus, PaymentMethod
-│   └── Repositories/                   # IOrderRepository (Interface)
+│   ├── Entities/                       # Farm, Field, CropSeason (Aggregates)
+│   ├── ValueObjects/                   # Location
+│   ├── Enums/                          # CropSeasonStatus, CropType
+│   ├── Exceptions/                     # BusinessException
+│   └── Repositories/                   # IFarmRepository, IFieldRepository, ICropSeasonRepository
 │
 ├── 📂 Infrastructure/               # External Concerns
-│   ├── Context/                        # EF Core DbContext
-│   ├── Repositories/                   # OrderRepository (Implementação)
-│   ├── Services/                       # RabbitMQ, Logging, Health Checks
-│   ├── HttpClients/                    # GamesApiClient
-│   ├── Factories/                      # MessagePublisherFactory
+│   ├── Context/                        # FarmsDbContext, CorrelationContext
+│   ├── Configurations/                 # EF Core entity configurations
+│   ├── Repositories/                   # FarmRepository, FieldRepository, CropSeasonRepository
+│   ├── Services/                       # Logging (Database, Elastic, NewRelic), Health Checks
 │   └── Migrations/                     # EF Core Migrations
 │
 ├── 📂 Tests/                        # Tests Layer
 │   ├── UnitTests/                      # Mocks, lógica isolada
-│   ├── IntegrationTests/               # EF Core real, endpoints
-│   ├── ArchitectureTests/              # NetArchTest (Clean Architecture)
+│   ├── IntegrationTests/               # EF Core InMemory, repositories
+│   ├── ArchitectureTests/              # NetArchTest (Clean Architecture, SOLID, Security)
 │   └── LoadTests/                      # k6, load testing
 │
 ├── 📂 docs/                         # Documentation
-│   ├── SOLID_SUMMARY.md                # Análise SOLID detalhada
+│   ├── SOLID_Summary.md                # Análise SOLID detalhada
 │   ├── Architecture.drawio             # Diagramas de arquitetura
-│   └── README.md                        # Este arquivo
+│   └── README.md                       # Este arquivo
 │
-├── 📂 kubernetes/                   # Kubernetes manifests
-├── 📂 .github/                      # GitHub workflows (CI/CD)
+├── 📂 Kubernetes/                   # Kubernetes manifests (deployment, service, hpa, secrets)
+├── 📂 .github/                      # GitHub workflows (CI/CD para AKS)
 ├── .gitignore                       # Arquivos ignorados pelo Git
 ├── Dockerfile                       # Imagem Docker da API
-├── AgroSolutions.Farms.sln                 # Solution .NET
+└── AgroSolutions.Farms.sln          # Solution .NET
 ```
 
 ---
 
 ## ✨ Funcionalidades Principais
 
-### 🔹 CRUD de Users
-- Validações de negócio (duplicação, status, pagamento)
-- Domain Events (OrderCreated, StatusChanged)
-- Paginação com metadados e links HATEOAS
+### 🔹 Gestão de Fazendas (Farms)
+- CRUD completo com validações de negócio (área, duplicação)
+- Links HATEOAS para navegação entre recursos
+
+### 🔹 Gestão de Talhões (Fields)
+- CRUD vinculado a fazendas com validação de área disponível
+- Geolocalização via Value Object `Location` (latitude/longitude)
+
+### 🔹 Gestão de Safras (CropSeasons)
+- Ciclo de vida completo: Planned → Active → Harvesting → Finished / Cancelled
+- Validação de conflito de datas por talhão
+- Controle de safras atrasadas (overdue)
 
 ### 🔹 Observabilidade
 - **Logging multi-destino:** Database, Elasticsearch, New Relic
 - **Correlation IDs:** Rastreamento distribuído
-- **Structured Logs:** JSON com contexto completo
+- **Structured Logs:** Serilog com contexto completo
 
 ### 🔹 Health Checks Dinâmicos
 - **Auto-discovery** via `IEnumerable<IHealthCheck>`
-- **Criticidade:** Database (503 se falhar) vs RabbitMQ (200 Degraded)
+- **Criticidade:** Database, Elasticsearch, System
 - **Extensível:** Adicione novo check sem modificar código existente
-
-### 🔹 Mensageria
-- **RabbitMQ** ou **Azure Service Bus**
-- Publicação automática de eventos de domínio
-- Factory Pattern para trocar provider
 
 ### 🔹 Segurança
 - HTTPS enforcement
@@ -200,10 +238,10 @@ AgroSolutions.Users/
 
 | Princípio | Aplicação |
 |-----------|-----------|
-| **S** - Single Responsibility | Cada classe tem 1 responsabilidade (OrderService, OrderRepository) |
-| **O** - Open/Closed | Extensível sem modificar (IHealthCheck → RedisHealthCheck) |
+| **S** - Single Responsibility | Cada classe tem 1 responsabilidade (FarmService, FarmRepository) |
+| **O** - Open/Closed | Extensível sem modificar (IHealthCheck → ElasticsearchHealthCheck) |
 | **L** - Liskov Substitution | ILoggerService → Database/Elastic/NewRelic substituíveis |
-| **I** - Interface Segregation | Interfaces coesas (IOrderRepository, IHealthCheck) |
+| **I** - Interface Segregation | Interfaces coesas (IFarmRepository, IFieldRepository, IHealthCheck) |
 | **D** - Dependency Inversion | Depende de abstrações, não implementações |
 
 ### Exemplos Práticos
@@ -232,7 +270,7 @@ builder.Services.AddScoped<IHealthCheck, RedisHealthCheck>();
 // Código cliente não muda! (Dependency Inversion)
 ```
 
-📚 **Documentação completa:** `docs/SOLID_PRINCIPLES_SUMMARY.md`
+📚 **Documentação completa:** `docs/SOLID_Summary.md`
 
 ---
 
@@ -240,18 +278,22 @@ builder.Services.AddScoped<IHealthCheck, RedisHealthCheck>();
 
 **Core:** .NET 8, C# 12, ASP.NET Core 8  
 **Persistência:** EF Core 8, SQL Server  
-**Messaging:** RabbitMQ, Azure Service Bus  
-**Logging:** Serilog (Elasticsearch, File, Console)  
+**Logging:** Serilog (Elasticsearch, Database, New Relic)  
+**APM:** Elastic APM  
 **Testes:** xUnit, Moq, FluentAssertions, NetArchTest, k6  
+**Infra:** Docker, Kubernetes (AKS), GitHub Actions  
 **Documentação:** Swagger/OpenAPI 3.0  
 
 ---
 
 ## 🚀 CI/CD
 
-### Pipeline Automatizado
+### Pipeline Automatizado (GitHub Actions → AKS)
 
-A aplicação possui pipelines de CI/CD completos para automação de build, testes e deploy.
+A aplicação possui pipeline CI/CD via GitHub Actions (`.github/workflows/ci-cd-aks.yml`) com:
+- Build e execução de testes automatizados
+- Build e push de imagem Docker
+- Deploy no Azure Kubernetes Service (AKS)
 
 ---
 
@@ -259,15 +301,15 @@ A aplicação possui pipelines de CI/CD completos para automação de build, tes
 
 ```bash
 # 1. Clonar
-git clone https://github.com/fkwesley/AgroSolutions.Users.git
-cd AgroSolutions.Users
+git clone https://github.com/fkwesley/AgroSolutions.Farms.git
+cd AgroSolutions.Farms
 
 # 2. Restaurar dependências
 dotnet restore
 
-# 3. Configurar banco (appsettings.json)
+# 3. Configurar banco (appsettings.Development.json)
 "ConnectionStrings": {
-  "DefaultConnection": "Server=localhost;Database=OrdersDB;..."
+  "FarmsDbConnection": "Server=localhost;Database=FarmsDb;..."
 }
 
 # 4. Aplicar migrations
@@ -301,7 +343,7 @@ dotnet run
 dotnet test                                    # Todos
 dotnet test --filter "Category=Unit"          # Unitários
 dotnet test --filter "Category=Integration"   # Integração
-k6 run load-tests/orders-load-test.js         # Carga
+k6 run Tests/LoadTests/load-test.js            # Carga
 ```
 
 ### Arquitetura (NetArchTest)

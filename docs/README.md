@@ -40,10 +40,10 @@ API RESTful escalável e manutenível, implementando as melhores práticas de ar
 
 ### 📌 Requisitos Hackaton FIAP
   - **Arquitetura baseada em microserviços**
-    - Microserviço para gestão de úsuários e autenticação JWT
-    - Microserviço para gestão de fazendas, talhões e safras
-    - Microserviço para injestão dos dados dos sensores 
-    - Funções Serverless para coleta e processamento de dados em tempo real
+    - Microserviço para gestão de úsuários e autenticação JWT (banco SQL)
+    - Microserviço para gestão de fazendas, talhões e safras (banco SQL)
+    - Microserviço para injestão dos dados dos sensores (banco NoSQL - Requisito Opcional)
+    - Funções Serverless para coleta de dados dos sensores (integração api de previsão do tempo - Requisito Opcional) 
   - **Orquestração com Kubernetes**
     - Imagens Docker otimizadas para .NET 8 (Alpine) 
     - Armazenamento das imagens no Azure Container Registry (ACR)
@@ -55,8 +55,8 @@ API RESTful escalável e manutenível, implementando as melhores práticas de ar
     - Kibana para dashboards
   - **Mensageria**
     - ServiceBus para comunicação assíncrona entre microserviços
-    - Azure Functions (Queue trigger) para processamento de mensagens em tempo real
-    - Azure Functions (Timer trigger) para coleta de dados dos sensores a cada hora
+    - Azure Functions (Queue trigger) para processamento de mensagens em tempo real (componente Serverless - Requisito Opcional)
+    - Azure Functions (Timer trigger) para coleta de dados dos sensores a cada hora (componente Serverless - Requisito Opcional)
   - **CI/CD Automatizado**
     - Github Actions para build, testes, build de imagem Docker e deploy no AKS
     - Stages de DEV, STAGING e PROD com aprovações manuais para deploy em produção
